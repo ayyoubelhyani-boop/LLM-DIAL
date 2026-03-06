@@ -82,6 +82,37 @@ L'implementation a ete pensee pour etre :
 - reproductible : les procedures aleatoires utilisent un `seed` ;
 - exploitable : une CLI permet de lancer facilement le pipeline sur un petit jeu de donnees.
 
+## Fonctionnement des composantes
+
+Le projet a ete concu comme une chaine de composants specialises, ou chaque module ajoute une responsabilite precise :
+
+- `io.py` charge et normalise les donnees d'entree en objets `SentenceRecord`.
+- `embeddings.py` transforme les phrases en vecteurs exploitables par les algorithmes de clustering.
+- `clustering.py` applique `KMeans` ou `MiniBatchKMeans` pour proposer des regroupements candidats.
+- `sampling.py` extrait un sous-ensemble representatif de phrases par cluster afin de reduire le cout de l'evaluation.
+- `llm_utils.py` apporte soit une evaluation et un nommage hors ligne (`dummy`), soit une version OpenAI avec cache et validation stricte.
+- `iterative.py` pilote la logique principale : test de plusieurs `K`, calcul du score `Good / (Bad + 1)`, retention des bons clusters et retrait des phrases deja assignees.
+- `merge.py` nomme les clusters puis fusionne ceux dont les labels sont semantiquement proches.
+- `metrics.py` fournit des outils simples pour resumer ou evaluer les resultats.
+- `cli.py` orchestre l'ensemble et produit les sorties JSON finales.
+
+La notion `Good` / `Bad` correspond ici a la coherence semantique d'un cluster :
+
+- `Good` signifie que les phrases semblent parler de la meme intention,
+- `Bad` signifie que le cluster melange plusieurs intentions ou reste trop flou.
+
+Dans la version hors ligne `dummy`, cette decision est prise a partir des mots dominants presents dans l'echantillon de phrases. Avec un vrai LLM, cette coherence est jugee directement par le modele via un prompt contraint.
+
+L'interet principal de cette decomposition est qu'elle separe clairement :
+
+- la preparation des donnees,
+- la representation vectorielle,
+- le clustering,
+- la validation semantique,
+- le post-traitement final.
+
+Cette architecture rend le projet plus lisible, plus testable et plus facile a faire evoluer. Un document dedie a cette explication a egalement ete ajoute dans `docs/COMPOSANTS_FR.md`.
+
 ## Validation
 
 Des tests automatises ont ete ajoutes pour verifier notamment :
@@ -105,4 +136,3 @@ Cette base permet :
 - d'executer l'algorithme de bout en bout avec une version hors ligne,
 - d'activer ensuite un vrai LLM sans modifier l'architecture generale,
 - d'etendre ulterieurement la qualite des embeddings, du sampling et du merge probabiliste.
-
