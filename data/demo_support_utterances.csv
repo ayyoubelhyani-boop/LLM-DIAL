@@ -1,0 +1,25 @@
+id,text,source
+1,password reset request,support_demo
+2,forgot password reset,support_demo
+3,password reset email,support_demo
+4,cannot login password reset,support_demo
+5,refund order request,support_demo
+6,refund payment amount,support_demo
+7,refund purchase request,support_demo
+8,refund damaged item,support_demo
+9,shipping delay parcel,support_demo
+10,parcel tracking shipping,support_demo
+11,shipping status package,support_demo
+12,shipment delay tracking,support_demo
+13,cancel subscription renewal,support_demo
+14,cancel subscription account,support_demo
+15,cancel membership service,support_demo
+16,subscription cancellation plan,support_demo
+17,billing payment error,support_demo
+18,payment declined billing,support_demo
+19,double charge billing,support_demo
+20,card payment issue,support_demo
+21,address update profile,support_demo
+22,change delivery address,support_demo
+23,edit mailing address,support_demo
+24,billing address change,support_demo
