@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dialin-llm"
+version = "0.1.0"
+description = "Paper-inspired Dial-In LLM intent clustering pipeline"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.24",
+  "scikit-learn>=1.3",
+]
+
+[project.optional-dependencies]
+llm = [
+  "openai>=1.0.0",
+]
+sentence-transformers = [
+  "sentence-transformers>=3.0.0",
+]
+dev = [
+  "pytest>=8.0.0",
+]
+
+[project.scripts]
+dialin-llm = "dialin_llm.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["dialin_llm*"]
+
