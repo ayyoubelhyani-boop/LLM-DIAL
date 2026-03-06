@@ -106,4 +106,3 @@ Cette base permet :
 - d'activer ensuite un vrai LLM sans modifier l'architecture generale,
 - d'etendre ulterieurement la qualite des embeddings, du sampling et du merge probabiliste.
 
-En resume, le travail realise fournit une version fonctionnelle, modulaire et pedagogiquement claire de la methode centrale de l'article.
