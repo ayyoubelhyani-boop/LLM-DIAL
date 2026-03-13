@@ -16,6 +16,7 @@ from .llm_utils import (
     OpenAICoherenceEvaluator,
 )
 from .merge import merge_clusters_by_label, name_clusters
+from .paper_data import HF_BENCHMARKS, OFFICIAL_SAMPLE_URLS, export_hf_benchmark, export_official_sample
 
 
 def main() -> None:
@@ -23,6 +24,9 @@ def main() -> None:
     args = parser.parse_args()
     if args.command == "run":
         run_command(args)
+        return
+    if args.command == "prepare-data":
+        prepare_data_command(args)
         return
     parser.error("A subcommand is required")
 
@@ -53,6 +57,37 @@ def build_parser() -> argparse.ArgumentParser:
         "--include-sentences",
         default="true",
         help="Whether to include raw sentences in cluster output",
+    )
+
+    prepare_parser = subparsers.add_parser("prepare-data", help="Export paper datasets into CSV or JSONL")
+    prepare_parser.add_argument(
+        "--source",
+        required=True,
+        choices=sorted([*HF_BENCHMARKS.keys(), *OFFICIAL_SAMPLE_URLS.keys()]),
+        help="Dataset source to export",
+    )
+    prepare_parser.add_argument("--out", required=True, help="Output CSV or JSONL path")
+    prepare_parser.add_argument(
+        "--format",
+        default="csv",
+        choices=["csv", "jsonl"],
+        help="Output format",
+    )
+    prepare_parser.add_argument(
+        "--split",
+        default="train",
+        help="Hugging Face split to export, for example train, validation, or test",
+    )
+    prepare_parser.add_argument(
+        "--config",
+        default=None,
+        help="Optional dataset config or language, for example en for MTOP or en-US for MASSIVE",
+    )
+    prepare_parser.add_argument(
+        "--layout",
+        default="clusters",
+        choices=["clusters", "utterances"],
+        help="Official sample export shape. HF benchmarks always export utterances.",
     )
     return parser
 
@@ -107,6 +142,28 @@ def run_command(args: argparse.Namespace) -> None:
             json.dump(summary, handle, indent=2)
 
     print(json.dumps(summary, indent=2))
+
+
+def prepare_data_command(args: argparse.Namespace) -> None:
+    source = args.source.strip().lower()
+    out_path = Path(args.out)
+    if source in HF_BENCHMARKS:
+        exported = export_hf_benchmark(
+            source,
+            out_path,
+            split=args.split,
+            config=args.config,
+            output_format=args.format,
+        )
+    else:
+        exported = export_official_sample(
+            source,
+            out_path,
+            output_format=args.format,
+            layout=args.layout,
+        )
+
+    print(json.dumps({"source": source, "output_path": str(exported)}, indent=2))
 
 
 def _build_summary(result: ClusterRunResult, merged_clusters: list[IntentCluster]) -> dict[str, object]:

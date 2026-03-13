@@ -1,25 +1,25 @@
-id,text,source
-1,password reset request,support_demo
-2,forgot password reset,support_demo
-3,password reset email,support_demo
-4,cannot login password reset,support_demo
-5,refund order request,support_demo
-6,refund payment amount,support_demo
-7,refund purchase request,support_demo
-8,refund damaged item,support_demo
-9,shipping delay parcel,support_demo
-10,parcel tracking shipping,support_demo
-11,shipping status package,support_demo
-12,shipment delay tracking,support_demo
-13,cancel subscription renewal,support_demo
-14,cancel subscription account,support_demo
-15,cancel membership service,support_demo
-16,subscription cancellation plan,support_demo
-17,billing payment error,support_demo
-18,payment declined billing,support_demo
-19,double charge billing,support_demo
-20,card payment issue,support_demo
-21,address update profile,support_demo
-22,change delivery address,support_demo
-23,edit mailing address,support_demo
-24,billing address change,support_demo
+id,text,source,label_text
+1,I am still waiting on my card?,banking77_sample,card_arrival
+2,What can I do if my card still hasn't arrived after 2 weeks?,banking77_sample,card_arrival
+3,I have been waiting over a week. Is the card still coming?,banking77_sample,card_arrival
+4,Can I track my card while it is in the process of delivery?,banking77_sample,card_arrival
+5,is there something blocking me from making transfers,banking77_sample,beneficiary_not_allowed
+6,What are the reasons for my beneficiary not being allowed?,banking77_sample,beneficiary_not_allowed
+7,"Is there something wrong with the transferring functions? I keep trying to transfer funds and only get an error message.",banking77_sample,beneficiary_not_allowed
+8,What are the reasons a beneficiary would be denied?,banking77_sample,beneficiary_not_allowed
+9,Why is there a charge when I took out money?,banking77_sample,cash_withdrawal_charge
+10,Why have I been charged a fee for cash withdrawal?,banking77_sample,cash_withdrawal_charge
+11,I made a cash withdrawl and there is a charge. What is this?,banking77_sample,cash_withdrawal_charge
+12,I am inquiring about why there was an extra fee charged when I used an ATM.,banking77_sample,cash_withdrawal_charge
+13,I tried to withdraw cash and got declined, why is that?,banking77_sample,declined_cash_withdrawal
+14,Why was I declined when I tried to get my money?,banking77_sample,declined_cash_withdrawal
+15,I could not access my money at the ATM,banking77_sample,declined_cash_withdrawal
+16,i needed money for a night out with the girls but i was declined, why?,banking77_sample,declined_cash_withdrawal
+17,I am worried that too much time has gone by for a transfer to be completed.,banking77_sample,transfer_not_received_by_recipient
+18,What is the time frame that it usually takes for a transfer to come through? I have a friend needing it immediately but it has yet to come through.,banking77_sample,transfer_not_received_by_recipient
+19,My money transaction can't be seen by the person I sent it to,banking77_sample,transfer_not_received_by_recipient
+20,"How long does it typically take a transfer to go through? I sent some money to a friend earlier today, and she really needs it. It still is a pending transfer, even though I sent it a few hours ago.",banking77_sample,transfer_not_received_by_recipient
+21,I looked on the app and it says I withdrew cash. I didn't!,banking77_sample,cash_withdrawal_not_recognised
+22,I didn't withdraw the amount of cash that is showing up in the app.,banking77_sample,cash_withdrawal_not_recognised
+23,"I saw on the app that a cash withdrawal was completed on my account; however, I did not complete it.",banking77_sample,cash_withdrawal_not_recognised
+24,I got a notice from my app that I withdrew cash but I don't remember doing so. How do I fix this?,banking77_sample,cash_withdrawal_not_recognised

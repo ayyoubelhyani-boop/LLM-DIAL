@@ -24,7 +24,7 @@ pip install -e .[dev]
 Optional extras:
 
 ```bash
-pip install -e .[dev,llm,sentence-transformers]
+pip install -e .[dev,llm,sentence-transformers,benchmarks]
 ```
 
 ## Run with the dummy evaluator
@@ -58,6 +58,73 @@ Example:
 ```bash
 set OPENAI_API_KEY=your_key_here
 python -m dialin_llm.cli run --input data/sentences.csv --text-col text --use-llm true --out out/clusters.json
+```
+
+## Use the paper datasets
+
+The paper combines two kinds of data:
+
+- an official `Dial-in-LLM` repository sample dataset,
+- public intent benchmarks such as `BANKING77`, `CLINC150`, `MTOP`, and `MASSIVE`.
+
+Important:
+
+- the full 55,085-sentence Chinese customer-service dataset is not publicly exposed in the official repo,
+- the official repo provides sample annotation files, not the private full corpus.
+
+Install the benchmark extra before exporting Hugging Face datasets:
+
+```bash
+pip install -e .[benchmarks]
+```
+
+Export a public benchmark to the CSV format expected by the pipeline:
+
+```bash
+python -m dialin_llm.cli prepare-data \
+  --source banking77 \
+  --split train \
+  --format csv \
+  --out data/banking77_train.csv
+```
+
+Other benchmark examples:
+
+```bash
+python -m dialin_llm.cli prepare-data --source clinc150 --split train --format csv --out data/clinc150_train.csv
+python -m dialin_llm.cli prepare-data --source mtop --config en --split train --format csv --out data/mtop_en_train.csv
+python -m dialin_llm.cli prepare-data --source massive --config en-US --split train --format csv --out data/massive_en_us_train.csv
+```
+
+Export the official sample annotation files:
+
+```bash
+python -m dialin_llm.cli prepare-data --source dialin-labels --format csv --out data/data_labels.csv
+python -m dialin_llm.cli prepare-data --source dialin-goodness --format jsonl --layout clusters --out data/sample_goodness.jsonl
+python -m dialin_llm.cli prepare-data --source dialin-label --format jsonl --layout clusters --out data/sample_labels.jsonl
+```
+
+If you want sentence-level rows from the official sample files instead of cluster-level JSONL:
+
+```bash
+python -m dialin_llm.cli prepare-data \
+  --source dialin-goodness \
+  --format csv \
+  --layout utterances \
+  --out data/sample_goodness_utterances.csv
+```
+
+Then run the existing pipeline on an exported benchmark:
+
+```bash
+python -m dialin_llm.cli run \
+  --input data/banking77_train.csv \
+  --text-col text \
+  --id-col sentence_id \
+  --embed tfidf \
+  --clusterer kmeans \
+  --candidate-ks 50,100,150 \
+  --out out/banking77_clusters.json
 ```
 
 ## Paper-faithful vs approximated
