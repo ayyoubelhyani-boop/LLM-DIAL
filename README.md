@@ -24,108 +24,67 @@ pip install -e .[dev]
 Optional extras:
 
 ```bash
-pip install -e .[dev,llm,sentence-transformers,benchmarks]
+pip install -e .[dev,llm,local-llm,sentence-transformers]
 ```
 
 ## Run with the dummy evaluator
 
 ```bash
-python -m dialin_llm.cli run \
-  --input data/sentences.csv \
-  --text-col text \
-  --embed tfidf \
-  --clusterer kmeans \
-  --candidate-ks 50,100,150,200 \
-  --sample-size 20 \
-  --sampler farthest \
-  --epsilon 0.05 \
-  --tmax 5 \
-  --use-llm false \
-  --out out/clusters.json
+python -m dialin_llm.cli run   --input data/sentences.csv   --text-col text   --embed tfidf   --clusterer kmeans   --candidate-ks 50,100,150,200   --sample-size 20   --sampler farthest   --epsilon 0.05   --tmax 5   --use-llm false   --out out/clusters.json
 ```
 
 The command writes `clusters.json` and prints a summary JSON with cluster counts, remaining sentences, and iterations used.
 
 ## Enable a real LLM
 
+### OpenAI backend
+
 1. Install the extra: `pip install -e .[llm]`
 2. Set `OPENAI_API_KEY`
-3. Run with `--use-llm true`
+3. Run with `--use-llm true --llm-provider openai`
 4. Optionally pass `--llm-model` and `--cache-path`
 
 Example:
 
 ```bash
-set OPENAI_API_KEY=your_key_here
-python -m dialin_llm.cli run --input data/sentences.csv --text-col text --use-llm true --out out/clusters.json
+export OPENAI_API_KEY=your_key_here
+python -m dialin_llm.cli run --input data/sentences.csv --text-col text --use-llm true --llm-provider openai --out out/clusters.json
 ```
 
-## Use the paper datasets
+### Local GPU backend
 
-The paper combines two kinds of data:
+This project also supports a local Hugging Face LLM backend through `transformers`.
 
-- an official `Dial-in-LLM` repository sample dataset,
-- public intent benchmarks such as `BANKING77`, `CLINC150`, `MTOP`, and `MASSIVE`.
-
-Important:
-
-- the full 55,085-sentence Chinese customer-service dataset is not publicly exposed in the official repo,
-- the official repo provides sample annotation files, not the private full corpus.
-
-Install the benchmark extra before exporting Hugging Face datasets:
+Recommended install:
 
 ```bash
-pip install -e .[benchmarks]
+pip install -e .[local-llm,sentence-transformers]
 ```
 
-Export a public benchmark to the CSV format expected by the pipeline:
+Example with a model that is realistic on a single ~20 GB GPU:
 
 ```bash
-python -m dialin_llm.cli prepare-data \
-  --source banking77 \
-  --split train \
-  --format csv \
-  --out data/banking77_train.csv
+python -m dialin_llm.cli run   --input data/sentences.csv   --text-col text   --use-llm true   --llm-provider local   --local-llm-model mistralai/Mistral-7B-Instruct-v0.3   --local-llm-cache-dir .hf-cache   --out out/clusters.json
 ```
 
-Other benchmark examples:
+Example for a larger server-side model using quantization:
 
 ```bash
-python -m dialin_llm.cli prepare-data --source clinc150 --split train --format csv --out data/clinc150_train.csv
-python -m dialin_llm.cli prepare-data --source mtop --config en --split train --format csv --out data/mtop_en_train.csv
-python -m dialin_llm.cli prepare-data --source massive --config en-US --split train --format csv --out data/massive_en_us_train.csv
+python -m dialin_llm.cli run   --input data/sentences.csv   --text-col text   --use-llm true   --llm-provider local   --local-llm-model mistralai/Mistral-Small-3.1-24B-Instruct-2503   --local-llm-quantization 4bit   --local-llm-cache-dir .hf-cache   --out out/clusters.json
 ```
 
-Export the official sample annotation files:
+Notes:
 
-```bash
-python -m dialin_llm.cli prepare-data --source dialin-labels --format csv --out data/data_labels.csv
-python -m dialin_llm.cli prepare-data --source dialin-goodness --format jsonl --layout clusters --out data/sample_goodness.jsonl
-python -m dialin_llm.cli prepare-data --source dialin-label --format jsonl --layout clusters --out data/sample_labels.jsonl
-```
+- `--local-llm-cache-dir` defaults to `.hf-cache`, so model files stay inside the project directory.
+- To pin the run to the second GPU on a multi-GPU server, use `--local-llm-device-map cuda:1`.
+- Plain `--local-llm-quantization none` now works on a single GPU even if `accelerate` is not installed.
+- `--local-llm-quantization 4bit` or `8bit` still requires `accelerate` and `bitsandbytes`.
+- For a strict ~20 GB VRAM target, a 7B instruct model is the honest default; Mistral Small 3.1 is a larger model and should be used quantized on the server.
 
-If you want sentence-level rows from the official sample files instead of cluster-level JSONL:
+## Run Notes
 
-```bash
-python -m dialin_llm.cli prepare-data \
-  --source dialin-goodness \
-  --format csv \
-  --layout utterances \
-  --out data/sample_goodness_utterances.csv
-```
-
-Then run the existing pipeline on an exported benchmark:
-
-```bash
-python -m dialin_llm.cli run \
-  --input data/banking77_train.csv \
-  --text-col text \
-  --id-col sentence_id \
-  --embed tfidf \
-  --clusterer kmeans \
-  --candidate-ks 50,100,150 \
-  --out out/banking77_clusters.json
-```
+- `docs/RUN_DEMO_FR.md`
+- `docs/RUN_BANKING77_LOCAL_MISTRAL_GPU1_FR.md`
 
 ## Paper-faithful vs approximated
 
@@ -133,4 +92,3 @@ python -m dialin_llm.cli run \
 - Approximated: representative sampling uses random or farthest-first diverse sampling instead of an exact convex sampling routine.
 - Approximated: dummy coherence and naming components are offline heuristics so the pipeline runs without network access.
 - Optional assumption: the paper's probabilistic vMF merge gate is underspecified because `kappa` is not fixed. This implementation exposes it only as an optional extension and documents the assumed acceptance probability.
-
