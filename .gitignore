@@ -1,14 +1,5 @@
 __pycache__/
 *.py[cod]
-.pytest_cache/
-.coverage
-.venv/
-venv/
-
-build/
-dist/
-*.egg-info/
-
 out/
-docs/
-sample_smoke.csv
+.hf-cache/
+.hf-home/

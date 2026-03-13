@@ -10,6 +10,8 @@ from typing import Any, Protocol, Sequence
 
 from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
 
+LABEL_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)+")
+
 
 class CoherenceEvaluator(Protocol):
     def coherence_eval(self, sentences: Sequence[str]) -> bool:
@@ -72,6 +74,173 @@ class DummyClusterNamer:
         return "general-request"
 
 
+class LocalTransformersTextGenerator:
+    def __init__(
+        self,
+        *,
+        model: str,
+        cache_dir: str | Path | None = ".hf-cache",
+        device_map: str = "auto",
+        quantization: str = "none",
+        max_new_tokens: int = 32,
+        temperature: float = 0.0,
+        trust_remote_code: bool = False,
+    ) -> None:
+        try:
+            import torch
+            from transformers import AutoModelForCausalLM, AutoTokenizer
+        except ImportError as exc:
+            raise RuntimeError(
+                "transformers and torch are required for the local LLM backend. "
+                "Install the 'local-llm' extra or provide them in the environment."
+            ) from exc
+
+        self.model = model
+        self.max_new_tokens = max_new_tokens
+        self.temperature = temperature
+        self.cache_dir = Path(cache_dir) if cache_dir else None
+        if self.cache_dir:
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
+
+        quantization_config = _build_quantization_config(quantization)
+        accelerate_available = _module_available("accelerate")
+        sharded_device_map = _uses_sharded_device_map(device_map)
+        fallback_device = _resolve_single_device(device_map=device_map, cuda_available=torch.cuda.is_available())
+
+        model_kwargs: dict[str, Any] = {
+            "trust_remote_code": trust_remote_code,
+            "low_cpu_mem_usage": True,
+        }
+        if self.cache_dir:
+            model_kwargs["cache_dir"] = str(self.cache_dir)
+
+        if quantization_config is not None:
+            if not accelerate_available:
+                raise RuntimeError(
+                    "Quantized local LLM loading requires accelerate in the current environment. "
+                    "Use --local-llm-quantization none for a plain single-GPU load."
+                )
+            model_kwargs["quantization_config"] = quantization_config
+            model_kwargs["device_map"] = device_map if sharded_device_map else {"": fallback_device}
+        else:
+            if torch.cuda.is_available():
+                model_kwargs["dtype"] = torch.float16
+            if accelerate_available and sharded_device_map:
+                model_kwargs["device_map"] = device_map
+
+        tokenizer_kwargs: dict[str, Any] = {"trust_remote_code": trust_remote_code}
+        if self.cache_dir:
+            tokenizer_kwargs["cache_dir"] = str(self.cache_dir)
+
+        self.tokenizer = AutoTokenizer.from_pretrained(model, **tokenizer_kwargs)
+        self.generator = AutoModelForCausalLM.from_pretrained(model, **model_kwargs)
+        if quantization_config is None and (not accelerate_available or not sharded_device_map):
+            self.generator = self.generator.to(fallback_device)
+        if self.tokenizer.pad_token is None and self.tokenizer.eos_token is not None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+
+    def generate(self, messages: Sequence[dict[str, str]]) -> str:
+        import torch
+
+        prompt = self._render_messages(messages)
+        inputs = self.tokenizer(prompt, return_tensors="pt")
+        device = next(self.generator.parameters()).device
+        inputs = {name: value.to(device) for name, value in inputs.items()}
+        generation_kwargs: dict[str, Any] = {
+            "max_new_tokens": self.max_new_tokens,
+            "pad_token_id": self.tokenizer.pad_token_id or self.tokenizer.eos_token_id,
+            "eos_token_id": self.tokenizer.eos_token_id,
+            "do_sample": self.temperature > 0,
+        }
+        if self.temperature > 0:
+            generation_kwargs["temperature"] = self.temperature
+
+        with torch.inference_mode():
+            output = self.generator.generate(**inputs, **generation_kwargs)
+        generated = output[0][inputs["input_ids"].shape[1] :]
+        return self.tokenizer.decode(generated, skip_special_tokens=True).strip()
+
+    def _render_messages(self, messages: Sequence[dict[str, str]]) -> str:
+        if hasattr(self.tokenizer, "apply_chat_template"):
+            try:
+                return self.tokenizer.apply_chat_template(
+                    list(messages),
+                    tokenize=False,
+                    add_generation_prompt=True,
+                )
+            except Exception:
+                pass
+        parts = []
+        for message in messages:
+            role = message.get("role", "user").strip().upper()
+            content = message.get("content", "").strip()
+            parts.append(f"{role}: {content}")
+        parts.append("ASSISTANT:")
+        return "\n\n".join(parts)
+
+
+class LocalTransformersCoherenceEvaluator:
+    def __init__(self, *, generator: LocalTransformersTextGenerator, cache: JsonCache | None = None) -> None:
+        self.generator = generator
+        self.cache = cache or JsonCache()
+
+    def coherence_eval(self, sentences: Sequence[str]) -> bool:
+        key = _hash_payload("local-coherence", self.generator.model, sentences)
+        cached = self.cache.get(key)
+        if cached:
+            return cached == "good"
+
+        payload = "\n".join(f"- {sentence}" for sentence in sentences)
+        response = self.generator.generate(
+            [
+                {"role": "system", "content": "Return only the requested output."},
+                {
+                    "role": "user",
+                    "content": (
+                        "You are evaluating whether a sampled cluster of customer service utterances is coherent.\n"
+                        "Return only one token: Good or Bad.\n"
+                        "Good means the utterances express one intent. Bad means the intent is mixed or unclear.\n"
+                        f"Sentences:\n{payload}"
+                    ),
+                },
+            ]
+        )
+        verdict = _parse_good_bad_loose(response)
+        self.cache.set(key, verdict)
+        return verdict == "good"
+
+
+class LocalTransformersClusterNamer:
+    def __init__(self, *, generator: LocalTransformersTextGenerator, cache: JsonCache | None = None) -> None:
+        self.generator = generator
+        self.cache = cache or JsonCache()
+
+    def name_cluster(self, sentences: Sequence[str]) -> str:
+        key = _hash_payload("local-name", self.generator.model, sentences)
+        cached = self.cache.get(key)
+        if cached:
+            return _extract_label(cached)
+
+        payload = "\n".join(f"- {sentence}" for sentence in sentences)
+        response = self.generator.generate(
+            [
+                {"role": "system", "content": "Return only the requested output."},
+                {
+                    "role": "user",
+                    "content": (
+                        "Name this customer service intent cluster with a strict lowercase action-objective label.\n"
+                        "Use only letters, numbers, and hyphens.\n"
+                        "Return only the label, for example inquire-insurance.\n"
+                        f"Sentences:\n{payload}"
+                    ),
+                },
+            ]
+        )
+        label = _extract_label(response)
+        self.cache.set(key, label)
+        return label
+
+
 class OpenAICoherenceEvaluator:
     def __init__(
         self,
@@ -126,8 +295,6 @@ class OpenAICoherenceEvaluator:
 
 
 class OpenAIClusterNamer:
-    LABEL_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)+$")
-
     def __init__(
         self,
         *,
@@ -147,7 +314,7 @@ class OpenAIClusterNamer:
         key = _hash_payload("name", self.model, sentences)
         cached = self.cache.get(key)
         if cached:
-            return self._validate_label(cached)
+            return _validate_label(cached)
 
         prompt = (
             "Name this customer service intent cluster with a strict lowercase action-objective label.\n"
@@ -156,7 +323,7 @@ class OpenAIClusterNamer:
             f"Sentences:\n{payload}"
         )
         response = self._call_with_retries(prompt)
-        label = self._validate_label(response)
+        label = _validate_label(response)
         self.cache.set(key, label)
         return label
 
@@ -179,12 +346,6 @@ class OpenAIClusterNamer:
                 time.sleep(min(2**attempt, 5))
         raise RuntimeError(f"OpenAI cluster naming failed after retries: {last_error}") from last_error
 
-    def _validate_label(self, raw: str) -> str:
-        label = raw.strip().lower()
-        if not self.LABEL_RE.fullmatch(label):
-            raise ValueError(f"LLM returned an invalid cluster label: {raw!r}")
-        return label
-
 
 def _build_openai_client(*, timeout: float) -> Any:
     api_key = os.getenv("OPENAI_API_KEY")
@@ -197,6 +358,50 @@ def _build_openai_client(*, timeout: float) -> Any:
     return OpenAI(api_key=api_key, timeout=timeout)
 
 
+def _module_available(name: str) -> bool:
+    import importlib.util
+
+    return importlib.util.find_spec(name) is not None
+
+
+def _uses_sharded_device_map(device_map: str) -> bool:
+    return device_map.strip().lower() in {"auto", "balanced", "balanced_low_0", "sequential"}
+
+
+def _resolve_single_device(*, device_map: str, cuda_available: bool) -> str:
+    normalized = device_map.strip().lower()
+    if normalized == "cpu":
+        return "cpu"
+    if normalized.startswith("cuda"):
+        return device_map
+    if normalized.isdigit():
+        return f"cuda:{normalized}" if cuda_available else "cpu"
+    return "cuda" if cuda_available else "cpu"
+
+
+def _build_quantization_config(mode: str) -> Any | None:
+    normalized = mode.strip().lower()
+    if normalized == "none":
+        return None
+    try:
+        import torch
+        from transformers import BitsAndBytesConfig
+    except ImportError as exc:
+        raise RuntimeError(
+            "bitsandbytes quantization requires transformers, torch, accelerate, and bitsandbytes."
+        ) from exc
+    if normalized == "4bit":
+        return BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_compute_dtype=torch.float16,
+        )
+    if normalized == "8bit":
+        return BitsAndBytesConfig(load_in_8bit=True)
+    raise ValueError(f"Unsupported local LLM quantization mode: {mode}")
+
+
 def _hash_payload(task: str, model: str, sentences: Sequence[str]) -> str:
     payload = json.dumps({"task": task, "model": model, "sentences": list(sentences)}, sort_keys=True)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
@@ -207,6 +412,33 @@ def _parse_good_bad(raw: str) -> str:
     if normalized not in {"good", "bad"}:
         raise ValueError(f"LLM returned an invalid coherence verdict: {raw!r}")
     return normalized
+
+
+def _parse_good_bad_loose(raw: str) -> str:
+    normalized = raw.strip().lower()
+    if normalized in {"good", "bad"}:
+        return normalized
+    match = re.search(r"\b(good|bad)\b", normalized)
+    if match:
+        return match.group(1)
+    raise ValueError(f"Local LLM returned an invalid coherence verdict: {raw!r}")
+
+
+def _validate_label(raw: str) -> str:
+    label = raw.strip().lower()
+    if not LABEL_RE.fullmatch(label):
+        raise ValueError(f"LLM returned an invalid cluster label: {raw!r}")
+    return label
+
+
+def _extract_label(raw: str) -> str:
+    normalized = raw.strip().lower().replace("_", "-")
+    if LABEL_RE.fullmatch(normalized):
+        return normalized
+    match = LABEL_RE.search(normalized)
+    if match:
+        return match.group(0)
+    raise ValueError(f"Local LLM returned an invalid cluster label: {raw!r}")
 
 
 def _tokenize(text: str) -> list[str]:
