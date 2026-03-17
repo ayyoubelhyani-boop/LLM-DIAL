@@ -90,6 +90,7 @@ Notes:
 ## Run Notes
 
 - `docs/SYNTHESE_BANKING77_FR.md`
+- `docs/PROMPT_AGENT_SERVER_FR.md`
 - `docs/RUN_DEMO_FR.md`
 - `docs/RUN_BANKING77_FR.md`
 - `docs/RUN_BANKING77_LOCAL_MISTRAL_GPU1_FR.md`
