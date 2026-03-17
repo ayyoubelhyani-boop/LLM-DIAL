@@ -110,3 +110,12 @@ Les prochaines ameliorations les plus utiles seraient :
 - lancer plus d'une iteration,
 - comparer les clusters obtenus aux labels de reference via une metrique comme le `NMI`,
 - activer un vrai LLM pour la coherence et le naming.
+
+## 8. Voir aussi
+
+Pour la suite des experiments sur le meme dataset :
+
+- `docs/RUN_BANKING77_LOCAL_MISTRAL_GPU1_FR.md` : run local Mistral avec `TF-IDF`
+- `docs/RUN_BANKING77_LOCAL_MISTRAL_GPU1_ST_FR.md` : run local Mistral avec `sentence-transformers`
+- `docs/COMPARAISON_BANKING77_FR.md` : premiere comparaison ciblee
+- `docs/COMPARAISON_BANKING77_TOUTES_COMBINAISONS_FR.md` : comparaison complete des 8 combinaisons

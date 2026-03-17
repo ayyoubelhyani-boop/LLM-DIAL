@@ -25,7 +25,7 @@ Le code a ete organise dans le package Python `dialin_llm`, avec une separation 
 - `embeddings.py` : embeddings en `TF-IDF`, avec extension optionnelle vers `sentence-transformers`.
 - `sampling.py` : echantillonnage aleatoire ou `farthest-first` pour representer chaque cluster.
 - `clustering.py` : utilisation de `KMeans` et `MiniBatchKMeans`.
-- `llm_utils.py` : evaluation et nommage des clusters, soit en mode `dummy`, soit via OpenAI avec cache et validation stricte.
+- `llm_utils.py` : evaluation et nommage des clusters en mode `dummy`, via OpenAI, ou via un backend local `transformers` teste avec Mistral.
 - `iterative.py` : boucle iterative principale.
 - `merge.py` : fusion des clusters proches a partir de la similarite semantique de leurs labels.
 - `metrics.py` : metriques simples d'evaluation.
@@ -64,6 +64,8 @@ Les principales simplifications sont :
 - un mode `dummy` permet une execution hors ligne,
 - la fusion probabiliste basee sur `vMF` reste optionnelle car certains parametres du papier sont insuffisamment precises.
 
+Le projet a egalement ete etendu avec un backend local `transformers` pour tester une version GPU sans dependance a une API distante.
+
 ## Validation
 
 Des tests automatises verifient notamment :
@@ -78,8 +80,27 @@ Resultats obtenus :
 - `python -m pytest -q` : **6 tests reussis**
 - un test d'execution complet via la CLI a egalement fonctionne.
 
+Des experiments complementaires ont ensuite ete menes sur le benchmark `BANKING77` pour comparer plusieurs regimes :
+
+- evaluateur `dummy` contre evaluateur local `Mistral`,
+- embeddings `TF-IDF` contre `sentence-transformers`,
+- `tmax = 1` contre `tmax = 2`.
+
+Ces comparaisons montrent notamment que :
+
+- `sentence-transformers` ameliore nettement les resultats par rapport a `TF-IDF`,
+- `tmax = 2` est plus efficace que `tmax = 1`,
+- le mode `dummy` reste le plus performant en couverture brute,
+- le meilleur compromis dans une logique plus proche du papier est `Mistral local + sentence-transformers + tmax = 2`.
+
 ## Conclusion
 
 Le projet fournit une premiere implementation propre et exploitable du coeur de l'approche Dial-In LLM.
 
 Cette base permet d'executer l'algorithme de bout en bout hors ligne, d'integrer ensuite un vrai LLM sans changer l'architecture generale, puis d'ameliorer progressivement les embeddings, le sampling et le merge probabiliste.
+
+La documentation des runs et des comparaisons a ete ajoutee dans `docs/` afin de garder une trace claire des choix de configuration et des resultats observés sur `BANKING77`.
+
+Pour une lecture rapide et presentable, le document de synthese recommande est :
+
+- `docs/SYNTHESE_BANKING77_FR.md`

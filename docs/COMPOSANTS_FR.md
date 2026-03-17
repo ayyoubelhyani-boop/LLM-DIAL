@@ -102,6 +102,9 @@ Ce module evite d'evaluer ou de nommer un cluster sur toutes ses phrases. Il red
 - `ClusterNamer` definit l'interface attendue pour nommer un cluster,
 - `DummyCoherenceEvaluator` valide un cluster si certains tokens dominants reviennent assez souvent,
 - `DummyClusterNamer` construit un label simple a partir des mots les plus frequents,
+- `LocalTransformersTextGenerator` charge un modele Hugging Face local et genere les reponses de coherence et de nommage,
+- `LocalTransformersCoherenceEvaluator` utilise ce generateur pour retourner `Good` ou `Bad`,
+- `LocalTransformersClusterNamer` utilise le meme backend local pour produire un label `action-objectif`,
 - `OpenAICoherenceEvaluator` interroge un modele OpenAI pour retourner `Good` ou `Bad`,
 - `OpenAIClusterNamer` demande au modele un label `action-objectif`,
 - `JsonCache` memorise les reponses afin d'eviter des appels repetes,
@@ -117,6 +120,12 @@ Dans la version `dummy`, cette decision repose sur la frequence des mots dominan
 ### Ce qu'il ajoute
 
 Ce module ajoute l'intelligence de validation et de denomination. Le clustering seul produit des groupes mathematiques ; ici, on ajoute une couche de jugement semantique inspiree de l'article.
+
+Le projet supporte donc maintenant trois regimes principaux :
+
+- un mode `dummy` entierement hors ligne,
+- un mode OpenAI,
+- un mode local `transformers`, teste avec `Mistral-7B-Instruct` sur GPU.
 
 ## 7. `iterative.py`
 
@@ -232,3 +241,10 @@ Le point central a retenir est que la qualite finale ne depend pas d'une seule b
 - la representativite du sampling,
 - la fiabilite de l'evaluation de coherence,
 - la qualite du nommage et du merge final.
+
+Les experiments menes sur `BANKING77` confirment concretement ce point :
+
+- `sentence-transformers` ameliore fortement la couverture par rapport a `TF-IDF`,
+- `tmax = 2` est plus robuste que `tmax = 1`,
+- le mode `dummy` maximise la couverture brute,
+- le mode `Mistral local` est plus fidele a une logique `LLM-in-the-loop`, mais plus selectif.
