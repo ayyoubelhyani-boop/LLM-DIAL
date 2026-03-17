@@ -28,6 +28,9 @@ sentence-transformers = [
 dev = [
   "pytest>=8.0.0",
 ]
+viz = [
+  "matplotlib>=3.8.0",
+]
 
 [project.scripts]
 dialin-llm = "dialin_llm.cli:main"

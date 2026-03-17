@@ -27,6 +27,12 @@ Optional extras:
 pip install -e .[dev,llm,local-llm,sentence-transformers]
 ```
 
+For cluster visualization:
+
+```bash
+pip install -e .[viz]
+```
+
 ## Run with the dummy evaluator
 
 ```bash
@@ -83,8 +89,23 @@ Notes:
 
 ## Run Notes
 
+- `docs/SYNTHESE_BANKING77_FR.md`
 - `docs/RUN_DEMO_FR.md`
+- `docs/RUN_BANKING77_FR.md`
 - `docs/RUN_BANKING77_LOCAL_MISTRAL_GPU1_FR.md`
+- `docs/RUN_BANKING77_LOCAL_MISTRAL_GPU1_ST_FR.md`
+- `docs/COMPARAISON_BANKING77_FR.md`
+- `docs/COMPARAISON_BANKING77_TOUTES_COMBINAISONS_FR.md`
+
+## Plot clusters
+
+You can render a 2D view of predicted clusters as a PNG with PCA:
+
+```bash
+python -m dialin_llm.cli plot-clusters --input data/banking77_train.csv --clusters out/banking77_clusters.json --id-col sentence_id --text-col text --embed sentence-transformers --out out/banking77_clusters.png
+```
+
+This keeps unassigned points in grey and annotates the largest clusters directly on the figure.
 
 ## Paper-faithful vs approximated
 
