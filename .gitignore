@@ -5,3 +5,4 @@ out/
 .hf-home/
 *.egg-info/
 archive-repo/
+report/build/

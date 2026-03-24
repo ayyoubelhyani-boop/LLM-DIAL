@@ -173,3 +173,18 @@ La prochaine amelioration la plus prometteuse est :
 2. reduire l explosion du nombre de clusters finaux sur `CLINC(I)` et `MTOP(I)` ;
 3. tester une version plus proche de `Llama-7B` si un checkpoint ouvert et stable devient disponible ;
 4. rapprocher la strategie de sampling de la version `convex` du papier.
+
+## 12. Ablation rapide sur le sampling `convex`
+
+Une approximation repo-locale du sampling `convex` a ensuite ete implemente et testee sur les deux benchmarks ou l ecart au papier etait le plus net :
+
+| Benchmark | NMI random (%) | NMI convex-proxy (%) | Delta |
+|---|---:|---:|---:|
+| `CLINC(I)` | `90.90` | `90.11` | `-0.79` |
+| `Massive(I)` | `74.02` | `72.53` | `-1.49` |
+
+Conclusion pratique :
+
+- dans l implementation actuelle, cette approximation de `convex sampling` n ameliore pas la reproduction ;
+- l ecart ne semble donc pas venir uniquement du mode de sampling ;
+- les prochains leviers les plus probables restent le couple coherence / naming, la selection de `K`, et le merge final.
