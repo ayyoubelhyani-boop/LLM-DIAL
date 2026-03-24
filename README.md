@@ -24,7 +24,7 @@ pip install -e .[dev]
 Optional extras:
 
 ```bash
-pip install -e .[dev,llm,local-llm,sentence-transformers]
+pip install -e .[dev,llm,local-llm,sentence-transformers,benchmarks]
 ```
 
 ## Run with the dummy evaluator
@@ -81,15 +81,18 @@ Notes:
 - `--local-llm-quantization 4bit` or `8bit` still requires `accelerate` and `bitsandbytes`.
 - For a strict ~20 GB VRAM target, a 7B instruct model is the honest default; Mistral Small 3.1 is a larger model and should be used quantized on the server.
 
-## Run Notes
+## Active Docs
 
-- `docs/SYNTHESE_BANKING77_FR.md`
-- `docs/RUN_DEMO_FR.md`
-- `docs/RUN_BANKING77_FR.md`
-- `docs/RUN_BANKING77_LOCAL_MISTRAL_GPU1_FR.md`
-- `docs/RUN_BANKING77_LOCAL_MISTRAL_GPU1_ST_FR.md`
-- `docs/COMPARAISON_BANKING77_FR.md`
-- `docs/COMPARAISON_BANKING77_TOUTES_COMBINAISONS_FR.md`
+- `docs/REPRODUCTION_PAPIER_FR.md`
+- `docs/COMPOSANTS_FR.md`
+
+## Archived Experiments
+
+Previous runs, experiment reports, and generated artifacts have been moved to the local archive repository:
+
+- `archive-repo/`
+
+This keeps the main repository focused on the current paper-faithful reproduction effort.
 
 ## Paper-faithful vs approximated
 

@@ -20,7 +20,7 @@ class BenchmarkSpec:
 
 HF_BENCHMARKS: dict[str, BenchmarkSpec] = {
     "banking77": BenchmarkSpec(
-        dataset_path="mteb/banking77",
+        dataset_path="PolyAI/banking77",
         default_config="default",
         text_field="text",
         label_field="label",
@@ -61,6 +61,7 @@ def export_hf_benchmark(
     split: str = "train",
     config: str | None = None,
     output_format: str = "csv",
+    intent_only: bool = False,
 ) -> Path:
     spec = HF_BENCHMARKS.get(benchmark)
     if spec is None:
@@ -90,6 +91,9 @@ def export_hf_benchmark(
         label_text = _label_text_from_value(label_value, label_names)
         if label_text is not None:
             row["label_text"] = label_text
+
+        if intent_only and benchmark == "clinc150" and not row.get("label_text"):
+            continue
 
         if benchmark == "massive":
             row["locale"] = item.get("locale")
@@ -233,8 +237,11 @@ def _load_hf_dataset(dataset_path: str, config: str, *, split: str):
     except RuntimeError as exc:
         # MASSIVE currently resolves through dataset scripts on some local
         # environments. Fall back to the public parquet export exposed by HF.
-        if dataset_path == "AmazonScience/massive" and "Dataset scripts are no longer supported" in str(exc):
-            return _load_massive_from_parquet(config=config, split=split)
+        if "Dataset scripts are no longer supported" in str(exc):
+            if dataset_path == "AmazonScience/massive":
+                return _load_massive_from_parquet(config=config, split=split)
+            if dataset_path == "PolyAI/banking77":
+                return _load_banking77_from_parquet(split=split)
         raise
 
 
@@ -254,6 +261,22 @@ def _load_massive_from_parquet(*, config: str, split: str):
     return frame.to_dict(orient="records")
 
 
+def _load_banking77_from_parquet(*, split: str):
+    try:
+        import pandas as pd
+    except ImportError as exc:
+        raise RuntimeError(
+            "pandas is required to load BANKING77 from parquet. Install the 'benchmarks' extra."
+        ) from exc
+
+    url = (
+        "https://huggingface.co/datasets/PolyAI/banking77/resolve/"
+        f"refs%2Fconvert%2Fparquet/default/{split}/0000.parquet"
+    )
+    frame = pd.read_parquet(url)
+    return frame.to_dict(orient="records")
+
+
 def _resolve_label_names(dataset, benchmark: str, spec: BenchmarkSpec) -> list[str] | None:
     feature = getattr(dataset, "features", {}).get(spec.label_field)
     names = getattr(feature, "names", None)
@@ -263,7 +286,7 @@ def _resolve_label_names(dataset, benchmark: str, spec: BenchmarkSpec) -> list[s
     if benchmark != "clinc150":
         return None
 
-    intents_dataset = _load_hf_dataset(spec.dataset_path, "intents", split="train")
+    intents_dataset = _load_hf_dataset(spec.dataset_path, "intents", split="intents")
     mapping: dict[int, str] = {}
     for item in intents_dataset:
         intent_id = item.get("id")

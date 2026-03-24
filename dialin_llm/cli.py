@@ -20,6 +20,7 @@ from .llm_utils import (
 )
 from .merge import merge_clusters_by_label, name_clusters
 from .metrics import evaluate_clustering, load_cluster_memberships
+from .paper_data import export_hf_benchmark, export_official_sample
 
 
 def main() -> None:
@@ -30,6 +31,12 @@ def main() -> None:
         return
     if args.command == "evaluate":
         evaluate_command(args)
+        return
+    if args.command == "export-benchmark":
+        export_benchmark_command(args)
+        return
+    if args.command == "export-official-sample":
+        export_official_sample_command(args)
         return
     parser.error("A subcommand is required")
 
@@ -77,6 +84,55 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate_parser.add_argument("--id-col", default="sentence_id", help="Sentence ID column")
     evaluate_parser.add_argument("--label-col", default="label", help="Reference label column")
     evaluate_parser.add_argument("--out", default=None, help="Optional JSON output path for evaluation metrics")
+
+    export_benchmark_parser = subparsers.add_parser(
+        "export-benchmark",
+        help="Export an official benchmark split used in the paper",
+    )
+    export_benchmark_parser.add_argument(
+        "--benchmark",
+        required=True,
+        choices=["banking77", "clinc150", "mtop", "massive"],
+        help="Benchmark name",
+    )
+    export_benchmark_parser.add_argument("--split", default="test", help="Dataset split to export")
+    export_benchmark_parser.add_argument("--config", default=None, help="Optional dataset config override")
+    export_benchmark_parser.add_argument(
+        "--format",
+        default="csv",
+        choices=["csv", "jsonl"],
+        help="Output file format",
+    )
+    export_benchmark_parser.add_argument(
+        "--intent-only",
+        default="false",
+        help="Filter to the intent-only subset when applicable",
+    )
+    export_benchmark_parser.add_argument("--out", required=True, help="Export output path")
+
+    export_sample_parser = subparsers.add_parser(
+        "export-official-sample",
+        help="Export sample data released in the authors' repository",
+    )
+    export_sample_parser.add_argument(
+        "--source",
+        required=True,
+        choices=["dialin-labels", "dialin-goodness", "dialin-label"],
+        help="Official sample source",
+    )
+    export_sample_parser.add_argument(
+        "--format",
+        default="jsonl",
+        choices=["csv", "jsonl"],
+        help="Output file format",
+    )
+    export_sample_parser.add_argument(
+        "--layout",
+        default="clusters",
+        choices=["clusters", "utterances"],
+        help="Export layout for JSON sample files",
+    )
+    export_sample_parser.add_argument("--out", required=True, help="Export output path")
     return parser
 
 
@@ -162,6 +218,50 @@ def evaluate_command(args: argparse.Namespace) -> None:
             json.dump(report, handle, indent=2)
 
     print(json.dumps(report, indent=2))
+
+
+def export_benchmark_command(args: argparse.Namespace) -> None:
+    output_path = export_hf_benchmark(
+        args.benchmark,
+        args.out,
+        split=args.split,
+        config=args.config,
+        output_format=args.format,
+        intent_only=_parse_bool(args.intent_only),
+    )
+    print(
+        json.dumps(
+            {
+                "benchmark": args.benchmark,
+                "split": args.split,
+                "config": args.config,
+                "format": args.format,
+                "intent_only": _parse_bool(args.intent_only),
+                "out": str(output_path),
+            },
+            indent=2,
+        )
+    )
+
+
+def export_official_sample_command(args: argparse.Namespace) -> None:
+    output_path = export_official_sample(
+        args.source,
+        args.out,
+        output_format=args.format,
+        layout=args.layout,
+    )
+    print(
+        json.dumps(
+            {
+                "source": args.source,
+                "format": args.format,
+                "layout": args.layout,
+                "out": str(output_path),
+            },
+            indent=2,
+        )
+    )
 
 
 def _build_summary(result: ClusterRunResult, merged_clusters: list[IntentCluster]) -> dict[str, object]:

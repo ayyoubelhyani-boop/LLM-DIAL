@@ -4,3 +4,4 @@ out/
 .hf-cache/
 .hf-home/
 *.egg-info/
+archive-repo/
