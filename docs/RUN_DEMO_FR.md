@@ -1,6 +1,6 @@
 # Execution de demonstration et interpretation
 
-Ce document resume une execution complete du pipeline `Dial-In LLM` sur un petit jeu de donnees de demonstration plus proche du papier que le jeu artificiel initial.
+Ce document resume une execution complete du pipeline `Dial-In LLM` sur un petit jeu de donnees de demonstration.
 
 ## 1. Jeu de donnees utilise
 
@@ -8,18 +8,16 @@ Fichier d'entree :
 
 - `data/demo_support_utterances.csv`
 
-Ce fichier contient maintenant **24 utterances reelles issues de `BANKING77`**, un benchmark public de classification d'intentions utilise dans le papier.
+Ce jeu contient 24 utterances de support client en anglais, reparties autour de 6 intentions simples :
 
-Le sous-ensemble retenu couvre 6 intentions bancaires :
+- reinitialisation de mot de passe,
+- annulation d'abonnement,
+- demande de remboursement,
+- probleme de livraison,
+- probleme de paiement / facturation,
+- changement d'adresse.
 
-- `card_arrival`
-- `beneficiary_not_allowed`
-- `cash_withdrawal_charge`
-- `declined_cash_withdrawal`
-- `transfer_not_received_by_recipient`
-- `cash_withdrawal_not_recognised`
-
-Le fichier conserve une taille reduite pour rester pratique en demonstration, mais il est semantiquement beaucoup plus proche du domaine du papier : service client, demandes courtes, intents metier et formulations naturelles.
+Remarque : le jeu est en anglais car l'evaluateur factice actuel (`DummyCoherenceEvaluator`) repose sur une tokenisation anglaise.
 
 ## 2. Commande executee
 
@@ -55,40 +53,100 @@ Resume global :
 - nombre d'iterations utilisees : 1
 - valeur de `K` retenue : 6
 
-Scores observes :
+Scores observes pour les valeurs candidates :
 
-- `K = 5` -> `4 Good`, `1 Bad`, score `2.0`
+- `K = 5` -> `5 Good`, `0 Bad`, score `5.0`
 - `K = 6` -> `6 Good`, `0 Bad`, score `6.0`
 - `K = 7` -> `6 Good`, `1 Bad`, score `3.0`
 
-Le systeme retient donc `K = 6`, ce qui correspond ici au nombre d'intentions presentes dans le sous-ensemble.
+Le systeme a donc choisi `K = 6`, car c'est la valeur qui maximise la metrique `Good / (Bad + 1)`.
 
-## 4. Interpretation des clusters
+## 4. Clusters produits
 
-Le comportement observe est globalement coherent :
+### Cluster 1
 
-- un cluster recouvre correctement les demandes de `card_arrival`,
-- un cluster recouvre correctement les demandes de `transfer_not_received_by_recipient`,
-- un petit cluster isole bien une partie des demandes `beneficiary_not_allowed`,
-- plusieurs utterances autour du cash withdrawal sont rapprochees entre elles, ce qui est plausible car elles partagent un vocabulaire tres proche.
+- label : `password-reset`
+- ids : `1, 2, 3, 4`
+- interpretation : demandes de reinitialisation de mot de passe
 
-On observe aussi des melanges semantiques attendus avec un couple `TF-IDF` + evaluateur `dummy` :
+### Cluster 2
 
-- certaines demandes de frais de retrait et de retrait refuse sont rapprochees,
-- une partie des utterances sur les transferts et les beneficiaires se regroupent par champ lexical,
-- les labels generes restent approximatifs car ils sont produits sans vrai LLM.
+- label : `cancel-subscription`
+- ids : `13, 14, 15, 16`
+- interpretation : demandes d'annulation d'abonnement ou de service
 
-## 5. Conclusion
+### Cluster 3
 
-Cette demonstration est plus representative du papier que la version initiale, car elle repose sur un **benchmark public reel du meme type de tache**.
+- label : `refund-request`
+- ids : `5, 7, 8`
+- interpretation : demandes de remboursement
 
-Elle ne remplace pas encore les gros jeux du papier, mais elle fournit une base plus credible pour :
+### Cluster 4
 
-- tester le pipeline de bout en bout,
-- comparer plusieurs embeddings,
-- evaluer l'effet d'un vrai LLM sur la coherence et le naming,
-- preparer ensuite des experiences sur `BANKING77`, `CLINC150`, `MTOP` ou `MASSIVE`.
+- label : `address-change`
+- ids : `12, 21, 22, 23, 24`
+- interpretation : majoritairement des demandes de changement d'adresse
 
-## 6. Verification complementaire
+Observation : la phrase `12` (`shipment delay tracking`) est plutot liee a la livraison qu'a l'adresse.
 
-La commande de demonstration a ete relancee avec succes sur ce nouveau fichier, et les sorties `out/demo_summary.json` et `out/demo_clusters.json` ont bien ete regenerees.
+### Cluster 5
+
+- label : `payment-billing`
+- ids : `6, 17, 18, 19, 20`
+- interpretation : majoritairement des problemes de paiement et de facturation
+
+Observation : la phrase `6` (`refund payment amount`) est semantiquement proche du remboursement, mais son vocabulaire la rapproche ici du cluster paiement.
+
+### Cluster 6
+
+- label : `shipping-parcel`
+- ids : `9, 10, 11`
+- interpretation : demandes de suivi ou retard de livraison
+
+## 5. Interpretation
+
+Cette execution montre que le pipeline fonctionne de bout en bout :
+
+- chargement du fichier,
+- vectorisation TF-IDF,
+- test de plusieurs valeurs de `K`,
+- evaluation de coherence,
+- selection du meilleur `K`,
+- nomination des clusters,
+- production d'un resultat JSON exploitable.
+
+Sur ce jeu de demonstration, le comportement est globalement coherent :
+
+- 3 clusters sont tres propres : `password-reset`, `cancel-subscription`, `shipping-parcel`,
+- 2 clusters sont globalement corrects mais contiennent une phrase frontiere : `address-change` et `payment-billing`,
+- 1 cluster de remboursement reste incomplet car une phrase de remboursement a ete attiree vers le champ lexical du paiement.
+
+L'interpretation importante est la suivante : avec des embeddings TF-IDF simples et un evaluateur factice base sur les mots dominants, le systeme retrouve bien les grandes intentions, mais il reste sensible aux proximités lexicales locales.
+
+Autrement dit :
+
+- `refund payment amount` ressemble lexicalement a un probleme de paiement,
+- `shipment delay tracking` ressemble lexicalement a une demande d'adresse a cause de la petite taille du jeu et des limites du clustering vectoriel simple.
+
+## 6. Conclusion
+
+Cette execution valide bien la faisabilite technique du projet, mais pas encore une qualite "production".
+
+Pour ameliorer les resultats, les prochaines etapes les plus utiles sont :
+
+- utiliser un embedder plus semantique, par exemple `sentence-transformers`,
+- activer un vrai evaluateur LLM avec `--use-llm true`,
+- tester sur un jeu de donnees reel plus volumineux,
+- comparer les clusters obtenus a des labels connus pour mesurer la qualite.
+
+## 7. Verification complementaire
+
+Les tests du projet ont ete relances apres l'execution :
+
+```bash
+python -m pytest -q
+```
+
+Resultat :
+
+- `6 passed`

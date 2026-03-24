@@ -20,7 +20,6 @@ from .llm_utils import (
 )
 from .merge import merge_clusters_by_label, name_clusters
 from .metrics import evaluate_clustering, load_cluster_memberships
-from .plotting import load_cluster_payload, prepare_cluster_plot_data, save_cluster_plot
 
 
 def main() -> None:
@@ -31,9 +30,6 @@ def main() -> None:
         return
     if args.command == "evaluate":
         evaluate_command(args)
-        return
-    if args.command == "plot-clusters":
-        plot_clusters_command(args)
         return
     parser.error("A subcommand is required")
 
@@ -81,18 +77,6 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate_parser.add_argument("--id-col", default="sentence_id", help="Sentence ID column")
     evaluate_parser.add_argument("--label-col", default="label", help="Reference label column")
     evaluate_parser.add_argument("--out", default=None, help="Optional JSON output path for evaluation metrics")
-
-    plot_parser = subparsers.add_parser("plot-clusters", help="Project clusters into 2D and save a PNG plot")
-    plot_parser.add_argument("--input", required=True, help="Path to CSV or JSONL input")
-    plot_parser.add_argument("--clusters", required=True, help="Path to cluster JSON output produced by the pipeline")
-    plot_parser.add_argument("--text-col", default="text", help="Input text column")
-    plot_parser.add_argument("--id-col", default="sentence_id", help="Sentence ID column")
-    plot_parser.add_argument("--embed", default="tfidf", help="Embedding backend for the visualization")
-    plot_parser.add_argument("--max-points", type=int, default=3000, help="Optional cap on plotted points")
-    plot_parser.add_argument("--annotate-top-n", type=int, default=10, help="Number of largest clusters to annotate")
-    plot_parser.add_argument("--title", default="Dial-In LLM cluster map", help="Plot title")
-    plot_parser.add_argument("--seed", type=int, default=0, help="Random seed for subsampling")
-    plot_parser.add_argument("--out", required=True, help="Output PNG path")
     return parser
 
 
@@ -178,44 +162,6 @@ def evaluate_command(args: argparse.Namespace) -> None:
             json.dump(report, handle, indent=2)
 
     print(json.dumps(report, indent=2))
-
-
-def plot_clusters_command(args: argparse.Namespace) -> None:
-    records = load_sentences(
-        args.input,
-        text_col=args.text_col,
-        id_col=args.id_col,
-        dedupe=False,
-    )
-    if not records:
-        raise ValueError("No sentences were loaded from the input file")
-
-    embedder = build_embedding_backend(args.embed)
-    embeddings = embedder.fit_transform([record.text for record in records])
-    cluster_payload = load_cluster_payload(args.clusters)
-    plot_data = prepare_cluster_plot_data(
-        records,
-        embeddings,
-        cluster_payload,
-        max_points=args.max_points,
-        seed=args.seed,
-    )
-    save_cluster_plot(
-        plot_data,
-        output_path=args.out,
-        title=args.title,
-        annotate_top_n=args.annotate_top_n,
-    )
-    print(
-        json.dumps(
-            {
-                "output_path": str(Path(args.out)),
-                "num_points": int(plot_data.coordinates.shape[0]),
-                "num_clusters_visible": len(plot_data.cluster_sizes),
-            },
-            indent=2,
-        )
-    )
 
 
 def _build_summary(result: ClusterRunResult, merged_clusters: list[IntentCluster]) -> dict[str, object]:
