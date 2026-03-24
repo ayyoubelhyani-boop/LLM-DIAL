@@ -9,6 +9,8 @@ def test_parse_good_bad_loose_accepts_embedded_verdict() -> None:
 def test_extract_label_accepts_embedded_label() -> None:
     assert _extract_label("Suggested label: refund-order") == "refund-order"
     assert _extract_label("use payment-refund please") == "payment-refund"
+    assert _extract_label("atmmalfunction") == "general-atmmalfunction"
+    assert _extract_label("ATM malfunction issue") == "atm-malfunction"
 
 
 def test_resolve_single_device_respects_cpu_and_cuda_defaults() -> None:

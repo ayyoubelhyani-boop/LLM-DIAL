@@ -49,7 +49,18 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--input", required=True, help="Path to CSV or JSONL input")
     run_parser.add_argument("--text-col", default="text", help="Input text column")
     run_parser.add_argument("--id-col", default=None, help="Optional sentence ID column")
+    run_parser.add_argument("--dedupe", default="true", help="Whether to deduplicate identical input texts before clustering")
     run_parser.add_argument("--embed", default="tfidf", help="Embedding backend")
+    run_parser.add_argument(
+        "--sentence-transformer-model",
+        default="sentence-transformers/all-MiniLM-L6-v2",
+        help="SentenceTransformer model name when --embed sentence-transformers",
+    )
+    run_parser.add_argument(
+        "--sentence-transformer-cache-dir",
+        default=".hf-cache/sentence-transformers",
+        help="Repo-local cache directory for sentence-transformers models",
+    )
     run_parser.add_argument("--clusterer", default="kmeans", help="Clusterer: kmeans or minibatch")
     run_parser.add_argument("--candidate-ks", required=True, help="Comma-separated candidate K values")
     run_parser.add_argument("--sample-size", type=int, default=20, help="Representative sample size")
@@ -70,6 +81,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--local-llm-cache-dir", default=".hf-cache", help="Model cache directory kept inside the project")
     run_parser.add_argument("--local-llm-trust-remote-code", default="false", help="Whether to trust remote code for the local LLM")
     run_parser.add_argument("--summary-out", default=None, help="Optional summary JSON output path")
+    run_parser.add_argument("--config-out", default=None, help="Optional JSON output path for the resolved run configuration")
     run_parser.add_argument("--out", required=True, help="Output JSON path for clusters")
     run_parser.add_argument(
         "--include-sentences",
@@ -141,11 +153,20 @@ def run_command(args: argparse.Namespace) -> None:
     use_llm = _parse_bool(args.use_llm)
     include_sentences = _parse_bool(args.include_sentences)
 
-    records = load_sentences(args.input, text_col=args.text_col, id_col=args.id_col, dedupe=True)
+    records = load_sentences(
+        args.input,
+        text_col=args.text_col,
+        id_col=args.id_col,
+        dedupe=_parse_bool(args.dedupe),
+    )
     if not records:
         raise ValueError("No sentences were loaded from the input file")
 
-    embedder = build_embedding_backend(args.embed)
+    embedder = build_embedding_backend(
+        args.embed,
+        sentence_transformer_model=args.sentence_transformer_model,
+        sentence_transformer_cache_dir=_normalize_optional_path(args.sentence_transformer_cache_dir),
+    )
     embeddings = embedder.fit_transform([record.text for record in records])
 
     if use_llm:
@@ -197,6 +218,12 @@ def run_command(args: argparse.Namespace) -> None:
         summary_path.parent.mkdir(parents=True, exist_ok=True)
         with summary_path.open("w", encoding="utf-8") as handle:
             json.dump(summary, handle, indent=2)
+
+    if args.config_out:
+        config_path = Path(args.config_out)
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        with config_path.open("w", encoding="utf-8") as handle:
+            json.dump(_resolved_run_config(args, candidate_ks), handle, indent=2)
 
     print(json.dumps(summary, indent=2))
 
@@ -292,6 +319,41 @@ def _cluster_to_dict(cluster: IntentCluster, *, include_sentences: bool) -> dict
     if include_sentences:
         payload["sentences"] = cluster.sentences
     return payload
+
+
+def _resolved_run_config(args: argparse.Namespace, candidate_ks: list[int]) -> dict[str, object]:
+    return {
+        "input": args.input,
+        "text_col": args.text_col,
+        "id_col": args.id_col,
+        "dedupe": _parse_bool(args.dedupe),
+        "embed": args.embed,
+        "sentence_transformer_model": args.sentence_transformer_model,
+        "sentence_transformer_cache_dir": _normalize_optional_path(args.sentence_transformer_cache_dir),
+        "clusterer": args.clusterer,
+        "candidate_ks": candidate_ks,
+        "sample_size": args.sample_size,
+        "sampler": args.sampler,
+        "epsilon": args.epsilon,
+        "tmax": args.tmax,
+        "theta": args.theta,
+        "seed": args.seed,
+        "use_llm": _parse_bool(args.use_llm),
+        "llm_provider": args.llm_provider,
+        "llm_model": args.llm_model,
+        "cache_path": _normalize_optional_path(args.cache_path),
+        "local_llm_model": args.local_llm_model,
+        "local_llm_quantization": args.local_llm_quantization,
+        "local_llm_device_map": args.local_llm_device_map,
+        "local_llm_max_new_tokens": args.local_llm_max_new_tokens,
+        "local_llm_temperature": args.local_llm_temperature,
+        "local_llm_cache_dir": _normalize_optional_path(args.local_llm_cache_dir),
+        "local_llm_trust_remote_code": _parse_bool(args.local_llm_trust_remote_code),
+        "summary_out": args.summary_out,
+        "config_out": args.config_out,
+        "out": args.out,
+        "include_sentences": _parse_bool(args.include_sentences),
+    }
 
 
 def _parse_candidate_ks(raw: str) -> list[int]:

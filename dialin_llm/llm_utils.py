@@ -425,20 +425,34 @@ def _parse_good_bad_loose(raw: str) -> str:
 
 
 def _validate_label(raw: str) -> str:
-    label = raw.strip().lower()
+    label = _coerce_label(raw)
     if not LABEL_RE.fullmatch(label):
         raise ValueError(f"LLM returned an invalid cluster label: {raw!r}")
     return label
 
 
 def _extract_label(raw: str) -> str:
+    direct_match = LABEL_RE.search(raw.strip().lower().replace("_", "-"))
+    if direct_match:
+        return direct_match.group(0)
+
+    normalized = _coerce_label(raw)
+    if LABEL_RE.fullmatch(normalized):
+        return normalized
+    raise ValueError(f"Local LLM returned an invalid cluster label: {raw!r}")
+
+
+def _coerce_label(raw: str) -> str:
     normalized = raw.strip().lower().replace("_", "-")
     if LABEL_RE.fullmatch(normalized):
         return normalized
-    match = LABEL_RE.search(normalized)
-    if match:
-        return match.group(0)
-    raise ValueError(f"Local LLM returned an invalid cluster label: {raw!r}")
+
+    tokens = re.findall(r"[a-z0-9]+", normalized)
+    if len(tokens) >= 2:
+        return f"{tokens[0]}-{tokens[1]}"
+    if len(tokens) == 1:
+        return f"general-{tokens[0]}"
+    return normalized
 
 
 def _tokenize(text: str) -> list[str]:
