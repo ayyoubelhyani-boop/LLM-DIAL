@@ -1,0 +1,88 @@
+\chapter{Conclusion}
+
+Ce projet a permis de faire evoluer le travail bien au-dela d'une simple mise
+en route du code des auteurs.
+
+Premierement, une reproduction runnable et defendable de l'article
+\emph{Dial-In LLM} a ete mise en place. Cette reproduction ne pretend pas etre
+strictement identique au protocole des auteurs, mais elle est suffisamment
+alignee pour permettre une comparaison honnete sur les benchmarks anglais du
+papier.
+
+Deuxiemement, le travail ne s'est pas arrete a cette reproduction. Plusieurs
+ameliorations ciblees ont ete proposees, implementees et evaluees
+experimentalement. Parmi elles, la selection adaptative de \texttt{K} par la
+politique \texttt{sqrt} apparait comme le levier le plus solide et le plus
+efficace, en particulier sur CLINC(I) et Massive(I).
+
+Troisiemement, le projet a clarifie la difference entre trois niveaux
+d'analyse :
+\begin{itemize}[leftmargin=*]
+  \item les resultats du papier ;
+  \item notre baseline de reproduction ;
+  \item notre meilleure version amelioree.
+\end{itemize}
+
+Cette structuration est essentielle pour un rendu academique reussi, car elle
+transforme le projet en etude comparative plutot qu'en simple suite de runs.
+
+\section{Resultat principal}
+
+Le resultat principal du projet peut etre resume de la facon suivante :
+\begin{itemize}[leftmargin=*]
+  \item la reproduction seule est deja competitive sur plusieurs benchmarks ;
+  \item la configuration amelioree finale bat la reproduction sur trois
+  benchmarks sur quatre ;
+  \item les ameliorations proposees reduisent une partie du gap au papier, et
+  depassent meme legerement la cible sur MTOP(I) ;
+  \item le meilleur gain observe vient de la gestion adaptative de
+  \texttt{K} ;
+  \item les benchmarks les plus difficiles sont aussi ceux sur lesquels les
+  ameliorations apportent le plus d'information scientifique.
+\end{itemize}
+
+\section{Limites}
+
+Le projet garde cependant plusieurs limites assumees :
+\begin{itemize}[leftmargin=*]
+  \item absence des checkpoints fine-tunes originaux des auteurs ;
+  \item recours a un LLM local ouvert en approximation du \texttt{Llama-7B}
+  fine-tune du papier ;
+  \item absence d'une evaluation exhaustive de toutes les ablations sur les
+  quatre benchmarks ;
+  \item absence, a ce stade, d'un vrai chapitre complet d'etat de l'art dans
+  la version finale du rapport.
+\end{itemize}
+
+Ces limites n'annulent pas la valeur du travail, mais elles doivent etre
+explicites pour distinguer clairement la reproduction approchee de la
+reproduction stricte.
+
+\section{Lecture finale}
+
+En l'etat, le projet dispose deja d'une base technique solide, d'une
+reproduction credible, et d'une premiere contribution experimentale proprement
+mise en evidence. Le rapport peut donc porter un message clair :
+\begin{itemize}[leftmargin=*]
+  \item la methode du papier a ete reconstruite de facon convaincante ;
+  \item ses ecarts de comportement ont ete analyses de maniere quantitative ;
+  \item certaines ameliorations ciblant le controle du LLM et surtout la
+  gestion de \texttt{K} ameliorent effectivement la qualite finale ;
+  \item ces gains restent benchmark-dependants, ce qui rend la comparaison avec
+  le papier plus riche qu'un simple tableau de scores.
+\end{itemize}
+
+\section{Suite immediate}
+
+La suite la plus logique pour finaliser le projet est maintenant :
+\begin{enumerate}[leftmargin=*]
+  \item figer dans le rapport le tableau comparatif complet sur les quatre
+  benchmarks ;
+  \item finaliser les sections restantes du rapport, en particulier l'etat de
+  l'art ;
+  \item compiler et relire la version finale du document.
+\end{enumerate}
+
+Cette situation est favorable pour terminer le projet de maniere propre :
+la partie technique est deja suffisamment avancee pour que la derniere phase
+soit essentiellement une consolidation experimentale et redactionnelle.

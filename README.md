@@ -81,6 +81,29 @@ Notes:
 - `--local-llm-quantization 4bit` or `8bit` still requires `accelerate` and `bitsandbytes`.
 - For a strict ~20 GB VRAM target, a 7B instruct model is the honest default; Mistral Small 3.1 is a larger model and should be used quantized on the server.
 
+## Final Comparison Campaign
+
+The repo also includes a reproducible campaign driver for the final
+`paper vs reproduction vs improved` comparison:
+
+```bash
+python tools/run_final_campaign.py --configs both --benchmarks all --output-root out/final_campaign --cuda-visible-devices 1
+```
+
+This script:
+
+- runs the `reproduction` and `improved` configurations on the official English benchmarks;
+- keeps Hugging Face caches inside the repo;
+- writes per-run artifacts under `out/final_campaign/<config>/<benchmark>/`;
+- produces aggregate files:
+  - `out/final_campaign/records.json`
+  - `out/final_campaign/comparison.json`
+  - `out/final_campaign/comparison.csv`
+
+When `--cuda-visible-devices 1` is used, the whole process is pinned to the
+second physical GPU, and the local LLM is automatically mapped to logical
+`cuda:0` inside that masked environment.
+
 ## Active Docs
 
 - `docs/REPRODUCTION_PAPIER_FR.md`

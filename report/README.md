@@ -26,3 +26,5 @@ Les artefacts de compilation sont places dans `build/`.
 - `01_introduction.tex`
 - `02_reproduction_papier.tex`
 - `03_perspectives.tex`
+- `04_synthese_comparative.tex`
+- `05_conclusion.tex`

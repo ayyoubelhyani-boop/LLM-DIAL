@@ -2,11 +2,14 @@
 
 Apres la phase de reproduction, la suite logique du projet consiste a tester
 des modifications ciblees du pipeline afin d'identifier les leviers qui
-ameliorent reellement la methode. Nous avons commence par deux familles
-d'intervention : d'abord le couple \texttt{coherence / naming}, puis le merge
-final entre clusters nommes. Ces deux composantes etaient les candidates les
-plus naturelles, car elles influencent directement la qualite des clusters
-acceptes et le niveau de fragmentation en sortie.
+ameliorent reellement la methode. L'objectif de ce chapitre n'est pas
+seulement de lister des variantes, mais de mesurer ce qu'elles apportent par
+rapport a la baseline de reproduction definie au chapitre precedent. Nous
+avons commence par deux familles d'intervention : d'abord le couple
+\texttt{coherence / naming}, puis le merge final entre clusters nommes. Ces
+deux composantes etaient les candidates les plus naturelles, car elles
+influencent directement la qualite des clusters acceptes et le niveau de
+fragmentation en sortie.
 
 \section{Premiere amelioration : \texttt{coherence / naming}}
 
@@ -472,3 +475,23 @@ La suite technique la plus logique est donc :
   \item ne revenir sur le merge que dans un second temps, avec une calibration
   plus systematique de \texttt{theta} et du poids labels / contenu.
 \end{enumerate}
+
+Au terme de ces experiences, la configuration amelioree la plus convaincante a
+ce stade combine donc :
+\begin{itemize}[leftmargin=*]
+  \item \texttt{llm\_prompt\_style = benchmark} ;
+  \item \texttt{naming\_sampler = centroid} ;
+  \item \texttt{candidate\_k\_policy = sqrt} ;
+  \item un merge final par labels uniquement.
+\end{itemize}
+
+Cette combinaison servira de \emph{baseline amelioree} dans la synthese
+comparative du chapitre suivant. Les autres variantes restent precieuses pour
+documenter les ablations et comprendre le comportement du pipeline, mais ne
+sont pas retenues comme configuration de reference finale. La campagne
+comparative finale montrera ensuite que cette configuration amelioree est
+globalement meilleure sur trois benchmarks sur quatre, tout en restant moins
+performante que la baseline de reproduction sur Bank77. Cette heterogeneite est
+importante : elle montre que les gains apportes par les ameliorations ne sont
+pas uniformes, et qu'ils doivent donc etre interpretes benchmark par
+benchmark.

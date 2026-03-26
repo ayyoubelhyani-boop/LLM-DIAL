@@ -11,28 +11,65 @@
 \usepackage{array}
 \usepackage{hyperref}
 \usepackage{enumitem}
+\usepackage{graphicx}
 
 \hypersetup{
   colorlinks=true,
   linkcolor=blue,
   citecolor=blue,
   urlcolor=blue,
-  pdftitle={Rapport de projet - Dial-In LLM},
-  pdfauthor={Ayyoub El-Hyani}
+  pdftitle={Clustering semantique des intentions dans les dialogues de service client par approche LLM},
+  pdfauthor={Ayyoub EL-HYANI, Meryem ABID, Nassima AOUARI, Mohamed Atif}
 }
-
-\title{Rapport de projet\\Dial-In LLM}
-\author{Ayyoub El-Hyani}
-\date{\today}
 
 \begin{document}
 
-\maketitle
+\begin{titlepage}
+    \centering
+
+    \IfFileExists{logo uni.png}{
+      \includegraphics[width=0.22\textwidth]{logo uni.png}\par\vspace{1cm}
+    }{
+      \vspace*{1cm}
+    }
+
+    {\scshape\large Rapport de projet PPD \par}
+    \vspace{1.5cm}
+
+    {\Huge\bfseries Clustering semantique des intentions dans les dialogues de service client par approche LLM\par}
+    \vspace{2cm}
+
+    {\Large \textbf{Realise par :}\par}
+    \vspace{0.5cm}
+    {\large
+    Ayyoub EL-HYANI \par
+    Meryem ABID \par
+    Nassima AOUARI \par
+    Mohamed Atif \par
+    }
+
+    \vspace{1.5cm}
+
+    {\Large \textbf{Soutenu devant le jury :}\par}
+    \vspace{0.5cm}
+    {\large
+    M.\ Imed KERAGHEL \par
+    M.\ Mohamed NADIF \par
+    }
+
+    \vfill
+
+    {\large \today\par}
+\end{titlepage}
+
 \tableofcontents
+\listoftables
 
 \include{chapters/01_introduction}
 \include{chapters/02_reproduction_papier}
 \include{chapters/03_perspectives}
+\include{chapters/04_synthese_comparative}
+\include{chapters/05_conclusion}
 
 \bibliographystyle{plain}
 \bibliography{references}
