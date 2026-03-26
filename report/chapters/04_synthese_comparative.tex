@@ -1,65 +1,60 @@
 \chapter{Synthese comparative}
 
-\section{Cadre de comparaison}
+\section{Objet de la synthese}
 
-Le coeur du projet consiste maintenant a comparer trois niveaux d'evaluation :
+Cette synthese compare trois niveaux d'analyse :
 \begin{itemize}[leftmargin=*]
-  \item les scores rapportes par les auteurs dans le papier ;
-  \item notre baseline de reproduction, c'est-a-dire la version la plus fidele
-  et stable du pipeline obtenue avec les ressources publiques ;
-  \item notre meilleure configuration amelioree, issue des experiences
-  d'amelioration conduites dans le chapitre precedent.
+  \item les scores rapportes par les auteurs ;
+  \item la baseline de reproduction obtenue dans notre environnement ;
+  \item la meilleure configuration amelioree issue des evaluations
+  complementaires.
 \end{itemize}
 
-Cette structuration est importante, car elle permet de distinguer clairement :
-\begin{itemize}[leftmargin=*]
-  \item ce qui releve de la reproduction ;
-  \item ce qui releve de la contribution personnelle ;
-  \item ce qui reste encore ouvert a la fin du projet.
-\end{itemize}
+L'enjeu n'est pas uniquement de juxtaposer des scores, mais de mettre en
+evidence ce qui releve de la reproduction, ce qui releve de l'analyse critique
+et ce qui releve d'une contribution methodologique propre au projet.
 
-\section{Configurations retenues}
-
-Deux configurations de reference emergent du travail realise.
+\section{Configurations de reference}
 
 \subsection{Baseline de reproduction}
 
 La baseline de reproduction correspond a la configuration la plus proche du
-papier que nous ayons pu executer de facon stable dans notre environnement :
+papier pouvant etre executee de facon stable dans notre environnement :
 \begin{itemize}[leftmargin=*]
   \item embeddings : \texttt{BAAI/bge-large-en-v1.5} ;
-  \item evaluateur et namer : \texttt{mistralai/Mistral-7B-Instruct-v0.3} ;
-  \item clusterer : \texttt{MiniBatchKMeans} ;
+  \item evaluateur et generateur de noms :
+  \texttt{mistralai/Mistral-7B-Instruct-v0.3} ;
+  \item \texttt{MiniBatchKMeans} ;
   \item \texttt{sample-size = 10} ;
   \item \texttt{sampler = random} ;
   \item \texttt{llm\_prompt\_style = simple} ;
   \item \texttt{naming\_sampler = head} ;
   \item \texttt{candidate\_k\_policy = fixed} ;
-  \item merge final par labels uniquement.
+  \item merge final par labels.
 \end{itemize}
 
-\subsection{Meilleure configuration amelioree}
+\subsection{Configuration amelioree}
 
-Au vu des ablations deja menees, la meilleure configuration amelioree retenue a
-ce stade est la suivante :
+La configuration amelioree retenue a l'issue des ablations combine :
 \begin{itemize}[leftmargin=*]
   \item \texttt{llm\_prompt\_style = benchmark} ;
   \item \texttt{naming\_sampler = centroid} ;
   \item \texttt{candidate\_k\_policy = sqrt} ;
-  \item merge final par labels uniquement.
+  \item merge final par labels.
 \end{itemize}
 
-Le merge \texttt{hybrid} et la politique \texttt{focused} pour \texttt{K} ne
-sont donc pas retenus comme configurations finales, meme s'ils restent utiles
-en tant qu'ablation et source d'enseignements sur le pipeline.
+Les variantes de merge hybride et de politique \texttt{focused} pour
+\texttt{K} ne sont pas retenues comme references finales, car elles
+n'apportent pas un compromis aussi favorable entre qualite de partition,
+stabilite et fragmentation.
 
 \section{Comparaison globale avec le papier}
 
-Le tableau~\ref{tab:global-comparison} resume l'etat actuel du projet en
-comparant, pour chaque benchmark, le score du papier, le score de reproduction
-et le score de la configuration amelioree retenue a l'issue des ablations. Il
-permet ainsi de lire directement ce que notre meilleure variante apporte par
-rapport a la reproduction initiale, puis de situer ce resultat face au papier.
+Le tableau~\ref{tab:global-comparison} presente les resultats finaux obtenus
+sur les quatre benchmarks anglais. Il indique, pour chaque jeu de donnees, le
+score du papier, le score de reproduction, le score de la configuration
+amelioree, ainsi que le gain de cette derniere par rapport a la reproduction et
+son ecart residuel au papier.
 
 \begin{table}[h]
   \centering
@@ -74,31 +69,26 @@ rapport a la reproduction initiale, puis de situer ce resultat face au papier.
     Massive(I) & 78.12 & 72.44 & 75.68 & +3.24 & -2.44 & amelioree \\
     \bottomrule
   \end{tabular}
-  \caption{Comparaison globale entre le papier, la reproduction et la configuration amelioree finale.}
+  \caption{Comparaison globale entre les scores du papier, la baseline de reproduction et la configuration amelioree finale.}
   \label{tab:global-comparison}
 \end{table}
 
-Ce tableau montre deja une image assez nette de l'etat du projet :
-\begin{itemize}[leftmargin=*]
-  \item la configuration amelioree n'est pas universellement meilleure :
-  Bank77 se degrade par rapport a la reproduction, meme s'il reste quasiment
-  aligne sur le score du papier ;
-  \item les ameliorations sont en revanche benefiques sur CLINC(I), MTOP(I) et
-  Massive(I), avec des gains respectifs de 1.46, 1.96 et 3.24 point de NMI par
-  rapport a la reproduction ;
-  \item MTOP(I) devient particulierement interessant, car la version amelioree
-  depasse legerement la cible du papier.
-\end{itemize}
+Trois enseignements principaux se degagent de ce tableau. En premier lieu, la
+configuration amelioree n'est pas uniformement dominante : sur Bank77, la
+baseline de reproduction reste meilleure, meme si la configuration amelioree
+reste tres proche du score du papier. En second lieu, les ameliorations sont
+benefiques sur CLINC(I), MTOP(I) et Massive(I), avec des gains respectifs de
+1.46, 1.96 et 3.24 points de NMI. En troisieme lieu, MTOP(I) constitue un cas
+particulierement significatif, puisque la configuration amelioree depasse
+legerement le score rapporte par les auteurs.
 
-\section{Comparaison detaillee sur les benchmarks ameliores}
+\section{Analyse comparative des benchmarks les plus sensibles}
 
-Les ameliorations n'ont pas toutes ete lancees sous forme d'ablations
-exploratoires sur les quatre benchmarks. En l'etat, la comparaison la plus
-complete entre variantes concerne CLINC(I) et Massive(I), car ce sont les deux
-benchmarks sur lesquels les ecarts de reproduction etaient les plus
-significatifs.
-
-Le tableau~\ref{tab:improvement-path} resume la trajectoire observee.
+Les evaluations complementaires detaillees ont principalement porte sur
+CLINC(I) et Massive(I), qui sont les deux benchmarks les plus sensibles aux
+variations de configuration. Le tableau~\ref{tab:improvement-path} retrace la
+trajectoire des scores au fil des principales modifications introduites dans le
+pipeline.
 
 \begin{table}[h]
   \centering
@@ -111,58 +101,51 @@ Le tableau~\ref{tab:improvement-path} resume la trajectoire observee.
     Massive(I) & 72.44 & 73.77 & 73.69 & 75.68 & 73.82 & 78.12 \\
     \bottomrule
   \end{tabular}
-  \caption{Trajectoire des scores au fil des ameliorations. La colonne Reprod. reprend la baseline officielle de la campagne finale ; les colonnes d'amelioration correspondent aux meilleures variantes exploratoires observees pour chaque etape. Imp. 1 : coherence / naming. Imp. 2 : merge hybride. Imp. 3 : \texttt{K} adaptatif \texttt{sqrt}. Imp. 4 : \texttt{K} \texttt{focused}.}
+  \caption{Trajectoire des scores au fil des ameliorations. Imp. 1 : revision du bloc \texttt{coherence / naming}. Imp. 2 : merge hybride. Imp. 3 : politique \texttt{sqrt} pour \texttt{K}. Imp. 4 : politique \texttt{focused}.}
   \label{tab:improvement-path}
 \end{table}
 
-Cette trajectoire permet de tirer plusieurs conclusions robustes :
+Cette trajectoire met en evidence une dynamique claire. La revision du bloc
+\texttt{coherence / naming} produit un premier gain sur CLINC(I), mais reste
+instable sur Massive(I). Le merge hybride ameliore la consolidation sans
+devenir la meilleure solution globale. En revanche, la politique adaptative
+\texttt{sqrt} constitue le principal levier de progression. Enfin, la variante
+\texttt{focused} confirme qu'une recherche de \texttt{K} trop localement
+contrainte peut se reveler contre-productive.
+
+\section{Lecture scientifique des resultats}
+
+La lecture d'ensemble des resultats conduit a une conclusion nuancee. Le projet
+ne debouche ni sur une reproduction exacte du papier, ni sur une simple suite
+de variantes empiriques. Il met plutot en evidence un scenario plus riche :
 \begin{itemize}[leftmargin=*]
-  \item l'amelioration du bloc \texttt{coherence / naming} apporte un premier
-  gain utile sur CLINC(I), mais reste instable sur Massive(I) ;
-  \item le merge hybride aide a la consolidation, sans devenir la meilleure
-  configuration globale ;
-  \item la politique \texttt{sqrt} pour \texttt{K} est l'amelioration la plus
-  forte et la plus stable parmi celles testees ;
-  \item la politique \texttt{focused} ne depasse pas \texttt{sqrt}, mais a mis
-  en evidence un besoin de robustesse supplementaire dans l'evaluateur local.
+  \item le coeur de la methode a ete reconstruit dans une forme pleinement
+  executable ;
+  \item les ecarts au papier ont pu etre mesures et interpretes de maniere
+  circonstanciee ;
+  \item certaines modifications methodologiques reduisent effectivement le
+  decalage avec le papier sur plusieurs benchmarks ;
+  \item les gains restent benchmark-dependants, ce qui interdit toute lecture
+  uniforme des performances.
 \end{itemize}
 
-\section{Lecture scientifique de l'etat actuel}
+Cette interpretation est importante sur le plan academique. Elle montre que la
+valeur du projet ne reside pas uniquement dans la proximite numerique avec les
+scores du papier, mais aussi dans la capacite a expliciter les conditions de
+reproductibilite, les limites du protocole initial et les effets distincts des
+ameliorations proposees.
 
-Le resultat principal du projet peut se formuler ainsi : nous avons obtenu une
-reproduction credible et defendable du papier, puis nous avons montre que des
-ameliorations ciblees du pipeline peuvent reduire une partie de l'ecart au
-papier sur plusieurs benchmarks, sans pour autant produire un gain uniforme.
+\section{Bilan de la comparaison finale}
 
-Le message scientifique n'est donc ni :
+A l'issue de la campagne finale, trois acquis peuvent etre consideres comme
+stabilises :
 \begin{itemize}[leftmargin=*]
-  \item ``nous avons reproduit exactement le papier'' ;
-  \item ni ``nous avons simplement teste quelques variantes sans ligne
-  directrice''.
+  \item une baseline de reproduction documentee sur les quatre benchmarks ;
+  \item une configuration amelioree justifiee par des evaluations
+  complementaires ;
+  \item une comparaison finale suffisamment structuree pour soutenir une
+  analyse critique du papier et des contributions du projet.
 \end{itemize}
 
-Le message plus juste est le suivant :
-\begin{itemize}[leftmargin=*]
-  \item nous avons reconstruit le coeur de la methode dans une forme runnable ;
-  \item nous avons mesure objectivement les ecarts a la version des auteurs ;
-  \item nous avons identifie les leviers experimentaux les plus importants ;
-  \item nous avons obtenu une meilleure configuration que notre reproduction de
-  depart sur trois benchmarks sur quatre, avec un comportement plus nuance sur
-  Bank77.
-\end{itemize}
-
-\section{Etat courant du projet}
-
-A la date de ce rapport, la meilleure base experimentale du projet est donc :
-\begin{itemize}[leftmargin=*]
-  \item une baseline de reproduction stable sur les quatre benchmarks ;
-  \item une baseline amelioree uniforme, basee sur \texttt{prompt = benchmark},
-  \texttt{naming = centroid} et \texttt{candidate\_k\_policy = sqrt} ;
-  \item un tableau comparatif complet qui permet de trancher, benchmark par
-  benchmark, entre reproduction et version amelioree.
-\end{itemize}
-
-La derniere etape logique n'est donc plus experimentale, mais redactionnelle :
-il s'agit maintenant d'exploiter proprement cette comparaison finale dans le
-rapport, puis de la replacer dans un cadre plus large avec l'etat de l'art et
-la discussion generale du projet.
+La synthese comparative constitue ainsi le point de convergence entre les
+attendus de reproduction, d'analyse critique et de proposition methodologique.

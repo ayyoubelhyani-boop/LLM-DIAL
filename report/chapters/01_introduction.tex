@@ -1,87 +1,104 @@
 \chapter{Introduction}
 
-Ce projet porte sur la reproduction et l'analyse critique de l'article
-\emph{Dial-In LLM: Human-Aligned LLM-in-the-loop Intent Clustering for
-Customer Service Dialogues}~\cite{hong2025dialinllm}. L'objectif general est
-double : reconstruire un pipeline experimental fidele au papier lorsque cela
-est possible avec les ressources publiques, puis evaluer les limites et les
-pistes d'amelioration de cette approche.
+Ce rapport presente une etude de reproduction et d'analyse critique de
+l'article \emph{Dial-In LLM: Human-Aligned LLM-in-the-loop Intent Clustering
+for Customer Service Dialogues}~\cite{hong2025dialinllm}. Le travail mene
+s'inscrit dans le cadre d'un projet tutore en apprentissage automatique et en
+science des donnees, dont l'objet est d'examiner en profondeur une methode
+recente, d'en evaluer la reproductibilite a partir des ressources publiques
+disponibles et d'en proposer une extension experimentale argumentee.
 
-\section{Contexte}
+\section{Contexte scientifique}
 
-L'article etudie un probleme de \emph{intent clustering} dans des dialogues de
-service client, avec une approche iterative ou un LLM intervient dans la boucle
-pour evaluer la coherence de clusters intermediaires et produire des noms
-d'intents. Cette approche est interessante pour un projet de reproduction, car
-elle combine plusieurs briques difficiles a realigner correctement :
+L'article etudie un probleme de \emph{clustering d'intentions} dans des
+dialogues de service client. Cette tache consiste a regrouper automatiquement
+des enonces selon l'intention qu'ils expriment. Elle presente une difficulte
+particuliere dans le cadre conversationnel, car la proximite lexicale entre
+deux phrases ne garantit ni une equivalence fonctionnelle, ni une separation
+nette entre intents. Une methode reposant exclusivement sur la proximite
+geometrique d'embeddings peut donc produire des partitions insuffisamment
+coherentes sur le plan semantique.
+
+L'originalite de \emph{Dial-In LLM} reside dans l'integration explicite d'un
+grand modele de langage au sein de la boucle de clustering. Le LLM n'y est pas
+mobilise comme simple outil de pretraitement, mais comme composant de decision,
+charge d'evaluer la coherence de clusters intermediaires et de generer des noms
+d'intentions. Cette architecture rend la methode particulierement interessante
+du point de vue de la reproduction, car elle articule plusieurs composantes
+dependantes :
 \begin{itemize}[leftmargin=*]
-  \item embeddings de phrases ;
-  \item clustering iteratif avec recherche de \texttt{K} ;
-  \item echantillonnage representatif des clusters ;
-  \item jugement \texttt{Good/Bad} par LLM ;
-  \item merge final entre clusters nommes.
+  \item un module d'encodage des enonces ;
+  \item une boucle iterative de clustering avec recherche de \texttt{K} ;
+  \item une strategie d'echantillonnage des clusters ;
+  \item un jugement de coherence par LLM ;
+  \item un mecanisme de nommage et de fusion finale.
 \end{itemize}
 
-Le travail deja realise a permis de reconstruire une version executable du
-coeur de la methode, de nettoyer le depot pour recentrer le projet sur la
-reproduction du papier, et de mettre en place une campagne de benchmark sur les
-jeux anglais presentes par les auteurs.
+La difficulte du travail de reproduction ne tient donc pas uniquement a la
+reexecution d'un code existant, mais a la reconstitution coherente de
+l'ensemble d'un protocole methodologique.
 
-\section{Objectifs du projet}
+\section{Objectifs}
 
-Le projet s'organise autour de quatre objectifs academiques complementaires :
+Le projet poursuit quatre objectifs complementaires :
 \begin{enumerate}[leftmargin=*]
-  \item s'approprier l'etat de l'art en rapport avec la publication ;
-  \item reproduire les resultats fournis par les auteurs de l'article ;
-  \item fournir des evaluations complementaires, par exemple avec d'autres
-  approches, d'autres jeux de donnees, ou des modifications
-  d'hyperparametres ;
-  \item proposer des modifications algorithmiques ou computationnelles
-  susceptibles d'ameliorer l'approche.
+  \item situer la publication dans son etat de l'art ;
+  \item reproduire, dans la mesure du possible, les resultats rapportes par les
+  auteurs ;
+  \item proposer des evaluations complementaires permettant de tester la
+  robustesse de la methode ;
+  \item concevoir et evaluer des modifications algorithmiques ou
+  computationnelles susceptibles d'ameliorer le pipeline.
 \end{enumerate}
 
-Dans la pratique, les travaux presentes dans ce rapport se concentrent surtout
-sur les trois derniers points. L'etat de l'art complet reste un chantier de
-redaction a part entiere, mais la reproduction et l'analyse experimentale sont
-desormais suffisamment avancees pour soutenir une vraie comparaison entre :
+Au fil du travail, cette demarche a naturellement conduit a structurer
+l'analyse autour de trois niveaux :
 \begin{itemize}[leftmargin=*]
-  \item les scores du papier ;
-  \item notre reproduction ;
-  \item notre version amelioree.
+  \item les resultats rapportes dans le papier ;
+  \item une baseline de reproduction construite dans notre environnement ;
+  \item une configuration amelioree issue de nos propres modifications.
 \end{itemize}
 
-\section{Demarche adoptee}
+Cette structuration permet de separer clairement ce qui releve de la
+reproduction, ce qui releve de l'analyse critique et ce qui constitue une
+contribution experimentale propre au projet.
 
-La demarche suivie dans le projet comporte trois etapes principales.
+\section{Demarche generale}
 
-La premiere etape a consiste a fixer une \emph{baseline de reproduction}
-solide. Cela a implique l'alignement sur les bons benchmarks, la mise en
-place d'une execution stable sur le serveur Jupyter, et l'identification d'une
-approximation realiste du protocole des auteurs malgre l'absence de leurs
-checkpoints publics.
+Le travail a ete organise en trois etapes principales.
 
-La deuxieme etape a consiste a mener une \emph{phase d'amelioration ciblee}.
-Plutot que de modifier tout le pipeline simultanement, nous avons teste des
-leviers separes : \texttt{coherence / naming}, merge final, et selection de
-\texttt{K}. Cette decomposition permet d'attribuer plus clairement les gains ou
-les regressions a chaque famille de modifications.
+La premiere a consiste a etablir une baseline de reproduction stable. Cette
+phase a implique le nettoyage du depot, l'alignement sur les bons jeux de
+donnees, la verification des tailles de benchmarks, la stabilisation de
+l'execution sur le serveur du projet et l'identification d'une approximation
+reproductible du protocole des auteurs.
 
-La troisieme etape, qui constitue desormais le cadre directeur du projet, est
-une \emph{synthese comparative}. L'objectif n'est plus seulement de faire
-tourner des variantes, mais de construire une lecture claire de l'etat du
-projet : ce qui reproduit le papier, ce qui reste en retrait, et ce que nos
-ameliorations apportent reellement.
+La deuxieme a consiste a mener une serie d'evaluations complementaires et
+d'ablations ciblees. Plutot que de modifier simultanement l'ensemble du
+pipeline, plusieurs leviers ont ete etudies separement : le bloc
+\texttt{coherence / naming}, le merge final et la politique de selection de
+\texttt{K}. Cette decomposition permet d'attribuer les variations de
+performance a des composantes techniques identifiables.
 
-\section{Structure du rapport}
+La troisieme a consiste a consolider ces resultats dans une campagne
+comparative finale, afin de produire une lecture synthetique et scientifiquement
+argumentee de l'etat du projet.
 
-La suite du document s'organise ainsi :
+\section{Organisation du rapport}
+
+Le document est organise comme suit :
 \begin{itemize}[leftmargin=*]
-  \item le chapitre suivant presente la reproduction du papier, le protocole
-  retenu, les choix d'implementation et les resultats obtenus ;
-  \item le troisieme chapitre decrit les ameliorations proposees, leur logique
-  technique et leurs resultats experimentaux ;
-  \item le quatrieme chapitre synthetise la comparaison entre papier,
-  reproduction et meilleure configuration amelioree ;
-  \item le dernier chapitre formule la conclusion generale et les prochaines
-  etapes du projet.
+  \item le chapitre~2 presente l'etat de l'art et situe l'article par rapport
+  aux travaux les plus proches ;
+  \item le chapitre~3 decrit la reproduction du papier, le protocole retenu,
+  l'environnement experimental et les resultats obtenus ;
+  \item le chapitre~4 rassemble les evaluations complementaires et les
+  modifications proposees ;
+  \item le chapitre~5 presente la synthese comparative entre le papier, la
+  baseline de reproduction et la configuration amelioree ;
+  \item le chapitre~6 propose le bilan general du travail.
 \end{itemize}
+
+L'objectif du rapport n'est donc pas seulement de presenter des scores, mais de
+fournir une analyse rigoureuse des conditions de reproductibilite du papier,
+des limites de l'approche et de la portee des ameliorations introduites.

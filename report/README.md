@@ -1,6 +1,6 @@
 # Projet LaTeX du rapport
 
-Ce dossier contient un squelette de rapport LaTeX pour le projet Dial-In LLM.
+Ce dossier contient le projet LaTeX du rapport final pour Dial-In LLM.
 
 ## Structure
 
@@ -24,6 +24,7 @@ Les artefacts de compilation sont places dans `build/`.
 ## Chapitres actuels
 
 - `01_introduction.tex`
+- `01_etat_art.tex`
 - `02_reproduction_papier.tex`
 - `03_perspectives.tex`
 - `04_synthese_comparative.tex`

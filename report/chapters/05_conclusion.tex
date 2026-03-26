@@ -1,87 +1,98 @@
 \chapter{Conclusion}
 
-Ce projet a permis de faire evoluer le travail bien au-dela d'une simple mise
-en route du code des auteurs.
+Le travail presente dans ce rapport avait pour objectif d'etudier, de
+reproduire et d'analyser de maniere critique l'approche \emph{Dial-In LLM}.
+Cette demarche a conduit a l'etablissement d'une baseline de reproduction
+documentee, a l'identification de plusieurs limites de reproductibilite et a
+l'evaluation de modifications methodologiques destinees a ameliorer le
+pipeline.
 
-Premierement, une reproduction runnable et defendable de l'article
-\emph{Dial-In LLM} a ete mise en place. Cette reproduction ne pretend pas etre
-strictement identique au protocole des auteurs, mais elle est suffisamment
-alignee pour permettre une comparaison honnete sur les benchmarks anglais du
-papier.
+\section{Resultats principaux}
 
-Deuxiemement, le travail ne s'est pas arrete a cette reproduction. Plusieurs
-ameliorations ciblees ont ete proposees, implementees et evaluees
-experimentalement. Parmi elles, la selection adaptative de \texttt{K} par la
-politique \texttt{sqrt} apparait comme le levier le plus solide et le plus
-efficace, en particulier sur CLINC(I) et Massive(I).
+Le premier resultat du projet est la construction d'une baseline de
+reproduction defendable sur les quatre benchmarks anglais du papier. Cette
+reproduction n'est pas strictement equivalente au protocole original, en raison
+de l'absence des checkpoints fine-tunes utilises par les auteurs, mais elle est
+suffisamment alignee pour rendre possible une comparaison quantitative
+pertinente.
 
-Troisiemement, le projet a clarifie la difference entre trois niveaux
-d'analyse :
+Le deuxieme resultat concerne les evaluations complementaires. Plusieurs
+propositions ont ete examinees, mais la plus convaincante est la politique
+adaptative \texttt{sqrt} pour la selection de \texttt{K}. Cette modification
+ameliore sensiblement la qualite du clustering sur les benchmarks les plus
+sensibles et reduit simultanement la fragmentation finale.
+
+Le troisieme resultat est d'ordre analytique. Le projet a permis de distinguer
+clairement trois niveaux de comparaison :
 \begin{itemize}[leftmargin=*]
-  \item les resultats du papier ;
-  \item notre baseline de reproduction ;
-  \item notre meilleure version amelioree.
+  \item les resultats rapportes dans le papier ;
+  \item la baseline de reproduction etablie dans notre environnement ;
+  \item la meilleure configuration amelioree issue des ablations.
 \end{itemize}
 
-Cette structuration est essentielle pour un rendu academique reussi, car elle
-transforme le projet en etude comparative plutot qu'en simple suite de runs.
+Cette structuration est essentielle, car elle permet de separer rigoureusement
+ce qui releve de la reproduction et ce qui constitue une contribution
+experimentale propre.
 
-\section{Resultat principal}
+\section{Interpretation generale}
 
-Le resultat principal du projet peut etre resume de la facon suivante :
+L'analyse d'ensemble conduit a une conclusion nuancee. La reproduction seule se
+revele deja competitive sur plusieurs benchmarks. La configuration amelioree
+surpasse ensuite la reproduction sur trois benchmarks sur quatre et reduit une
+partie du decalage avec le papier, tout en depassant legerement le score de
+reference sur MTOP(I). En revanche, aucune configuration unique ne domine
+systematiquement sur l'ensemble des cas etudies, comme le montre le comportement
+de Bank77.
+
+Cette heterogeneite constitue un resultat en soi. Elle indique que les
+performances de la methode restent fortement dependantes de la structure des
+benchmarks et du comportement de certaines composantes du pipeline, en
+particulier la selection de \texttt{K}, la stabilite du jugement de coherence
+et le niveau de fragmentation final.
+
+\section{Limites du travail}
+
+Plusieurs limites doivent etre explicitees.
 \begin{itemize}[leftmargin=*]
-  \item la reproduction seule est deja competitive sur plusieurs benchmarks ;
-  \item la configuration amelioree finale bat la reproduction sur trois
-  benchmarks sur quatre ;
-  \item les ameliorations proposees reduisent une partie du gap au papier, et
-  depassent meme legerement la cible sur MTOP(I) ;
-  \item le meilleur gain observe vient de la gestion adaptative de
-  \texttt{K}, avec un effet particulierement net sur Massive(I) ;
-  \item les benchmarks les plus difficiles sont aussi ceux sur lesquels les
-  ameliorations apportent le plus d'information scientifique.
+  \item Les checkpoints fine-tunes utilises par les auteurs pour les benchmarks
+  anglais ne sont pas publiquement disponibles.
+  \item Le recours a \texttt{Mistral-7B-Instruct} constitue une approximation
+  operationnelle, mais non equivalente, du \texttt{Llama-7B} fine-tune du
+  papier.
+  \item Toutes les evaluations complementaires n'ont pas ete conduites de
+  maniere exhaustive sur les quatre benchmarks.
+  \item Les performances demeurent sensibles a certains choix de configuration,
+  ce qui limite la portee d'une lecture uniforme des resultats.
 \end{itemize}
 
-\section{Limites}
+Ces limites ne remettent pas en cause l'interet du travail, mais elles bornent
+explicitement son domaine de validite et permettent de distinguer une
+reproduction approchee d'une replication stricte.
 
-Le projet garde cependant plusieurs limites assumees :
+\section{Apport scientifique du projet}
+
+L'apport principal de ce travail tient a l'articulation entre reproduction,
+analyse critique et proposition methodologique. Il montre :
 \begin{itemize}[leftmargin=*]
-  \item absence des checkpoints fine-tunes originaux des auteurs ;
-  \item recours a un LLM local ouvert en approximation du \texttt{Llama-7B}
-  fine-tune du papier ;
-  \item absence d'une evaluation exhaustive de toutes les ablations sur les
-  quatre benchmarks ;
-  \item absence, a ce stade, d'un vrai chapitre complet d'etat de l'art dans
-  la version finale du rapport.
+  \item qu'il est possible de reconstruire le coeur de \emph{Dial-In LLM} dans
+  un environnement public et controle ;
+  \item que les ecarts au papier peuvent etre interpretes a partir de
+  composantes techniques identifiables ;
+  \item que certaines modifications, notamment sur la gestion de \texttt{K},
+  apportent un gain mesurable ;
+  \item que l'evaluation de la methode doit rester benchmark-dependante et ne
+  peut etre reduite a un commentaire global sur les scores.
 \end{itemize}
 
-Ces limites n'annulent pas la valeur du travail, mais elles doivent etre
-explicites pour distinguer clairement la reproduction approchee de la
-reproduction stricte.
+En ce sens, le projet satisfait les attendus d'un travail tutore en
+apprentissage automatique et en science des donnees : appropriation d'un etat
+de l'art, reproduction critique d'une methode recente, evaluations
+complementaires et formulation de propositions argumentees.
 
-\section{Lecture finale}
+\section{Ouverture}
 
-En l'etat, le projet dispose deja d'une base technique solide, d'une
-reproduction credible, et d'une premiere contribution experimentale proprement
-mise en evidence. Le rapport peut donc porter un message clair :
-\begin{itemize}[leftmargin=*]
-  \item la methode du papier a ete reconstruite de facon convaincante ;
-  \item ses ecarts de comportement ont ete analyses de maniere quantitative ;
-  \item certaines ameliorations ciblant le controle du LLM et surtout la
-  gestion de \texttt{K} ameliorent effectivement la qualite finale ;
-  \item ces gains restent benchmark-dependants, ce qui rend la comparaison avec
-  le papier plus riche qu'un simple tableau de scores.
-\end{itemize}
-
-\section{Suite immediate}
-
-La suite la plus logique pour finaliser le projet est maintenant :
-\begin{enumerate}[leftmargin=*]
-  \item finaliser les sections restantes du rapport, en particulier l'etat de
-  l'art ;
-  \item compiler et relire la version finale du document ;
-  \item figer la version finale du depot et des artefacts associes.
-\end{enumerate}
-
-Cette situation est favorable pour terminer le projet de maniere propre :
-la partie technique est deja suffisamment avancee pour que la derniere phase
-soit essentiellement une consolidation experimentale et redactionnelle.
+La phase experimentale peut desormais etre consideree comme stabilisee. La
+suite du travail releve principalement de la consolidation editoriale et de la
+valorisation des resultats : finalisation du rapport PDF, preparation des
+supports de restitution et presentation synthetique des contributions du groupe
+dans un cadre academique.

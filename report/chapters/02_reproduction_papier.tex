@@ -1,26 +1,25 @@
 \chapter{Reproduction du papier}
 
-\section{Objectif de la reproduction}
+\section{Objet et perimetre de la reproduction}
 
-L'objectif de cette partie du projet etait de reproduire aussi fidelement que
-possible les resultats presentes dans l'article
-\emph{Dial-In LLM: Human-Aligned LLM-in-the-loop Intent Clustering for Customer
-Service Dialogues}~\cite{hong2025dialinllm}, en se concentrant sur la partie la
-plus reproductible avec les ressources publiques : l'evaluation sur les
-benchmarks anglais.
+L'objectif de cette partie est de reproduire, aussi fidelement que possible,
+les resultats presentes dans \emph{Dial-In LLM: Human-Aligned LLM-in-the-loop
+Intent Clustering for Customer Service Dialogues}~\cite{hong2025dialinllm}.
+Compte tenu des ressources publiques disponibles, la reproduction a ete
+restreinte a la partie anglaise du protocole, c'est-a-dire aux benchmarks
+Bank77, CLINC(I), MTOP(I) et Massive(I).
 
-Plutot que de viser immediatement les resultats principaux sur le corpus
-chinois des auteurs, nous avons choisi de cibler le tableau de comparaison sur
-quatre benchmarks anglais, car :
-\begin{itemize}[leftmargin=*]
-  \item les jeux de donnees sont publics ;
-  \item les tailles de benchmark sont connues ;
-  \item les scores cibles du papier sont explicitement rapportes ;
-  \item cette partie permet deja d'evaluer la qualite du pipeline
-  LLM-in-the-loop dans un cadre comparable.
-\end{itemize}
+Ce choix est methodologiquement justifie par trois elements. En premier lieu,
+les jeux de donnees concernes sont publics et leurs tailles sont explicites
+dans le papier. En second lieu, les scores cibles sont rapportes de maniere
+precise par les auteurs, ce qui permet une comparaison quantitative directe.
+En troisieme lieu, cette partie du protocole mobilise deja l'ensemble des
+composantes essentielles du pipeline \emph{LLM-in-the-loop}. En revanche, la
+reproduction stricte des resultats principaux sur le corpus chinois n'est pas
+realiste dans notre environnement, en raison de l'absence des checkpoints
+fine-tunes utilises par les auteurs.
 
-Les scores de reference du papier sont resumes dans le
+Les scores de reference extraits du papier sont rappeles dans le
 tableau~\ref{tab:paper-targets}.
 
 \begin{table}[h]
@@ -35,17 +34,49 @@ tableau~\ref{tab:paper-targets}.
     Massive(I) & 78.12 \\
     \bottomrule
   \end{tabular}
-  \caption{Scores cibles rapportes dans le papier pour les benchmarks anglais.}
+  \caption{Scores de reference rapportes dans le papier pour les benchmarks anglais.}
   \label{tab:paper-targets}
 \end{table}
 
-\section{Alignement du protocole}
+\section{Description de l'approche etudiee}
 
-Avant de lancer les runs, un travail d'alignement a ete realise pour garantir
-que la comparaison se fasse sur les bons jeux de donnees et selon un protocole
-coherent avec l'article.
+L'approche proposee dans \emph{Dial-In LLM} repose sur une boucle iterative de
+clustering dans laquelle un grand modele de langage intervient comme composant
+de decision. Le pipeline peut etre decompose en cinq etapes principales :
+\begin{enumerate}[leftmargin=*]
+  \item encodage des enonces dans un espace vectoriel ;
+  \item generation de plusieurs partitions candidates a partir de valeurs
+  concurrentes de \texttt{K} ;
+  \item echantillonnage representatif des clusters obtenus ;
+  \item evaluation de la coherence des clusters par le LLM, avec generation
+  d'un jugement \texttt{Good/Bad} et d'un nom d'intention ;
+  \item fusion finale de clusters semantiquement proches.
+\end{enumerate}
 
-Les benchmarks exportes et verifies sont presentes dans le
+Dans notre implementation, ce schema general a ete conserve. La boucle
+iterative, la recherche de \texttt{K}, l'evaluation de coherence, le nommage
+des clusters et le merge final ont ete reconstruits au sein d'un pipeline
+entierement executable. En revanche, plusieurs composantes ont du etre
+approximees :
+\begin{itemize}[leftmargin=*]
+  \item le LLM de reference du papier pour les benchmarks anglais n'etait pas
+  publiquement accessible ;
+  \item le \texttt{convex sampling} a d'abord ete remplace par des strategies
+  plus simples, puis par une approximation locale ;
+  \item la procedure de fusion finale reste plus simple que la version
+  probabiliste decrite dans le papier.
+\end{itemize}
+
+La reproduction obtenue doit donc etre comprise comme une reproduction
+approchee, documentee et comparee explicitement au protocole original.
+
+\section{Protocole de reproduction}
+
+\subsection{Alignement des donnees}
+
+Une phase preliminaire d'alignement a ete necessaire afin de garantir que les
+experiences portent sur les memes objets d'evaluation que dans le papier. Les
+benchmarks utilises et leurs tailles observees sont resumes dans le
 tableau~\ref{tab:benchmark-sizes}.
 
 \begin{table}[h]
@@ -60,83 +91,108 @@ tableau~\ref{tab:benchmark-sizes}.
     Massive(I) & 2974 & 2974 \\
     \bottomrule
   \end{tabular}
-  \caption{Verification des tailles des benchmarks exportes.}
+  \caption{Verification des tailles des benchmarks utilises pour la reproduction.}
   \label{tab:benchmark-sizes}
 \end{table}
 
-Ce travail a necessite plusieurs ajustements :
+Cet alignement a implique :
 \begin{itemize}[leftmargin=*]
-  \item export explicite des splits \texttt{test} dans le format du pipeline ;
-  \item filtrage \texttt{intent-only} pour CLINC(I) ;
-  \item ajout d'un flag \texttt{--dedupe false} pour eviter qu'un benchmark
-  soit modifie artificiellement par la deduplication interne ;
-  \item generation d'un fichier de configuration de run afin de conserver un
-  protocole completement tracable.
+  \item l'export explicite des splits \texttt{test} dans le format attendu par
+  le pipeline ;
+  \item le filtrage \texttt{intent-only} pour CLINC(I) ;
+  \item la desactivation de la deduplication interne afin d'eviter toute
+  modification artificielle des benchmarks ;
+  \item la sauvegarde systematique de la configuration de run pour garantir la
+  tracabilite des experiences.
 \end{itemize}
 
-\section{Environnement experimental}
+\subsection{Configuration retenue}
 
-Les experiences de reproduction ont ete executees sur le serveur Jupyter du
-projet, dans le repertoire \texttt{/nfs/LLM-DIAL}.
-
-Les contraintes retenues etaient les suivantes :
-\begin{itemize}[leftmargin=*]
-  \item utilisation systematique du second GPU \texttt{cuda:1} ;
-  \item ecriture uniquement dans le depot du projet ;
-  \item caches modeles conserves dans \texttt{.hf-cache/} ;
-  \item sorties de runs conservees dans \texttt{out/} ;
-  \item aucune modification de fichier ou de depot hors du projet.
-\end{itemize}
-
-L'environnement observe etait :
-\begin{itemize}[leftmargin=*]
-  \item Python 3.12.6 ;
-  \item \texttt{torch} disponible ;
-  \item \texttt{transformers} disponible ;
-  \item \texttt{sentence-transformers} disponible ;
-  \item deux GPU NVIDIA L40 ;
-  \item \texttt{accelerate} non disponible ;
-  \item \texttt{bitsandbytes} non disponible.
-\end{itemize}
-
-Ces contraintes ont directement influence le niveau de fidelite accessible par
-rapport au papier.
-
-\section{Choix d'implementation}
-
-L'article indique que les benchmarks anglais sont traites avec un
-\texttt{Llama-7B} fine-tune sur 800 clusters d'intents annotes. En pratique, la
-reproduction exacte de cette configuration n'etait pas possible dans notre
-environnement, car les checkpoints officiels equivalents Meta-Llama sont
-proteges par un acces \emph{gated}, et les modeles fine-tunes des auteurs ne
-sont pas publics.
-
-Nous avons donc retenu la pile suivante comme approximation la plus fidele
-reellement executable :
+Le papier indique que les benchmarks anglais sont traites avec un
+\texttt{Llama-7B} fine-tune sur 800 clusters d'intentions annotes. Cette
+configuration n'etait pas directement accessible dans notre environnement. La
+configuration suivante a donc ete retenue comme approximation la plus proche
+effectivement executable :
 \begin{itemize}[leftmargin=*]
   \item embeddings : \texttt{BAAI/bge-large-en-v1.5} ;
-  \item evaluateur et namer locaux :
+  \item evaluateur et generateur de noms :
   \texttt{mistralai/Mistral-7B-Instruct-v0.3} ;
-  \item clustering : \texttt{MiniBatchKMeans} ;
+  \item algorithme de clustering : \texttt{MiniBatchKMeans} ;
   \item \texttt{sample-size = 10} ;
   \item \texttt{tmax = 5} ;
   \item recherche par candidats de \texttt{K} ;
   \item \texttt{dedupe = false}.
 \end{itemize}
 
-Cette pile est une approximation raisonnable du protocole du papier, mais pas
-une reproduction exacte. Les principaux ecarts sont :
+Les principaux ecarts assumes par rapport au protocole du papier sont donc :
 \begin{itemize}[leftmargin=*]
-  \item absence du \texttt{Llama-7B} fine-tune des auteurs ;
-  \item absence du sampling \texttt{convex} exact ;
-  \item merge final encore simplifie ;
-  \item prompting local necessairement different du protocole original.
+  \item l'absence du \texttt{Llama-7B} fine-tune utilise par les auteurs ;
+  \item l'absence du \texttt{convex sampling} exact ;
+  \item une simplification partielle de la logique de merge ;
+  \item un prompting adapte au LLM local retenu.
 \end{itemize}
+
+\subsection{Justification du non-recours a \texttt{Llama-7B} et au \texttt{convex sampling} exact}
+
+Le non-recours au \texttt{Llama-7B} mentionne dans le papier ne releve pas d'un
+choix arbitraire, mais d'une contrainte de reproductibilite. Les auteurs
+indiquent utiliser, pour les benchmarks anglais, un \texttt{Llama-7B}
+fine-tune sur 800 clusters d'intentions annotes. Or ce checkpoint fine-tune
+n'etait pas publiquement disponible dans le cadre de ce projet. En
+consequence, il n'etait pas possible de reproduire strictement cette
+composante du protocole. Le recours a
+\texttt{mistralai/Mistral-7B-Instruct-v0.3} doit donc etre compris comme une
+approximation operationnelle, choisie parce qu'elle etait accessible,
+compatible avec l'environnement serveur et suffisamment stable pour soutenir
+une campagne de reproduction complete.
+
+La meme logique s'applique au \texttt{convex sampling}. Le papier en souligne
+l'importance, mais ni une implementation directement reutilisable ni une
+description suffisante pour garantir une reconstruction exacte n'etaient
+disponibles dans les ressources publiques exploitees ici. Dans un premier
+temps, des strategies plus simples et plus robustes ont donc ete retenues pour
+stabiliser le pipeline. Dans un second temps, une approximation locale du
+\texttt{convex sampling} a ete introduite a titre d'ablation. Les resultats
+obtenus n'ont toutefois pas montre d'amelioration mesurable, ce qui a conduit
+a ne pas retenir cette variante dans la configuration de reference.
+
+\section{Environnement experimental}
+
+L'ensemble des experiences a ete execute sur le serveur Jupyter du projet, dans
+le repertoire \texttt{/nfs/LLM-DIAL}. Le cadre d'execution a ete fixe de facon
+stricte afin de garantir la reproductibilite des runs et de limiter les effets
+de bord.
+
+\subsection{Plateforme d'execution}
+
+Les calculs ont ete menes sur une machine disposant de deux GPU NVIDIA L40. Par
+convention, toutes les experiences ont ete executees sur le second GPU
+physique, afin de conserver un protocole d'execution uniforme sur l'ensemble du
+projet. Les caches de modeles ont ete confines au depot local du projet, de
+meme que l'ensemble des artefacts de sortie.
+
+\subsection{Environnement logiciel}
+
+Au moment des principales experiences de reproduction, l'environnement
+logiciel etait le suivant :
+\begin{itemize}[leftmargin=*]
+  \item Python 3.12.6 ;
+  \item \texttt{torch} disponible ;
+  \item \texttt{transformers} disponible ;
+  \item \texttt{sentence-transformers} disponible ;
+  \item \texttt{accelerate} indisponible ;
+  \item \texttt{bitsandbytes} indisponible.
+\end{itemize}
+
+Ces caracteristiques ont directement conditionne le niveau de fidelite
+accessible. En particulier, l'absence d'outils de quantification et
+l'impossibilite de charger le modele exact des auteurs ont impose le recours a
+une configuration alternative documentee.
 
 \section{Resultats de reproduction}
 
-La campagne principale a donne les resultats du
-tableau~\ref{tab:reproduction-results}.
+La campagne de reproduction principale a produit les resultats presentes dans
+le tableau~\ref{tab:reproduction-results}.
 
 \begin{table}[h]
   \centering
@@ -151,131 +207,82 @@ tableau~\ref{tab:reproduction-results}.
     Massive(I) & 78.12 & 72.44 & -5.68 & 87.56 & 104 & 370 \\
     \bottomrule
   \end{tabular}
-  \caption{Comparaison entre les scores du papier et les scores reproduits.}
+  \caption{Comparaison entre les scores du papier et la baseline de reproduction.}
   \label{tab:reproduction-results}
 \end{table}
 
-Plusieurs observations ressortent :
-\begin{enumerate}[leftmargin=*]
-  \item la reproduction est deja tres competitive sur Bank77, ou notre score
-  depasse legerement celui du papier ;
-  \item le resultat sur MTOP(I) est tres proche du score cible ;
-  \item les ecarts les plus nets concernent CLINC(I) et Massive(I), en
-  particulier Massive(I) dans la campagne finale officielle ;
-  \item la couverture reste tres forte sur trois benchmarks, mais le nombre de
-  clusters finaux produits reste souvent superieur au nombre d'intents de
-  reference.
-\end{enumerate}
+Ces resultats montrent que la reproduction obtenue est deja competitive sur
+plusieurs benchmarks. Le score atteint sur Bank77 depasse legerement celui
+rapporte par les auteurs, tandis que MTOP(I) reste proche de la cible. En
+revanche, les ecarts demeurent plus importants sur CLINC(I) et Massive(I), ce
+qui signale des limites plus structurelles du pipeline reproduit ou de son
+approximation locale.
 
-Dans la suite du rapport, cette configuration sert de \emph{baseline de
-reproduction}. Toutes les ameliorations proposees ensuite seront donc jugees
-par rapport a ce point de reference interne, lui-meme compare aux scores du
-papier.
+Un second enseignement concerne la structure meme des partitions produites. La
+couverture reste elevee sur trois benchmarks, mais le nombre de clusters finaux
+demeure souvent superieur au nombre de classes de reference. Cette observation
+oriente l'analyse vers une tendance a la sur-fragmentation, qui deviendra un
+axe central des ameliorations ulterieures.
 
-\section{Essai d'amelioration : approximation du sampling \texttt{convex}}
+\section{Analyse critique de l'approche et des evaluations proposees par les auteurs}
 
-Comme l'article souligne l'importance du \texttt{convex sampling}, une
-approximation repo-locale de cette idee a ete implementee. Cette version
-selectionne d'abord des points extremes via une projection basse dimension et
-une coque convexe, puis complete l'echantillon avec une logique de
-diversification.
+\subsection{Points forts de l'approche}
 
-Nous avons teste cette variante sur les benchmarks les plus en retard, comme le
-montre le tableau~\ref{tab:convex-ablation}.
+La reproduction permet de confirmer plusieurs qualites du papier. La premiere
+est l'integration effective du LLM dans la boucle de clustering. Cette
+integration ne se reduit pas a un simple enrichissement des representations :
+le modele intervient dans la selection des clusters retenus et dans la
+construction d'une couche d'interpretabilite via le nommage des intents.
 
-\begin{table}[h]
-  \centering
-  \begin{tabular}{lrrr}
-    \toprule
-    Benchmark & NMI random (\%) & NMI convex-proxy (\%) & Delta \\
-    \midrule
-    CLINC(I) & 90.90 & 90.11 & -0.79 \\
-    Massive(I) & 74.02 & 72.53 & -1.49 \\
-    \bottomrule
-  \end{tabular}
-  \caption{Ablation de l'approximation du sampling \texttt{convex}.}
-  \label{tab:convex-ablation}
-\end{table}
+La deuxieme qualite tient au caractere iteratif de la methode. Le nombre final
+de clusters n'est pas suppose connu a l'avance, ce qui correspond mieux aux
+conditions reelles d'exploration de corpus conversationnels.
 
-Cet essai montre que l'approximation actuelle du \texttt{convex sampling}
-n'apporte pas d'amelioration mesurable sur ces benchmarks, et degrade meme
-legerement les scores. Cela suggere que :
-\begin{itemize}[leftmargin=*]
-  \item soit notre approximation est encore trop eloignee du protocole
-  original ;
-  \item soit le sampling n'est pas le facteur principal limitant la
-  reproduction dans notre implementation.
-\end{itemize}
+La troisieme qualite est d'ordre experimental : le papier propose une
+evaluation sur plusieurs benchmarks anglais, ainsi qu'un corpus chinois de
+grande ampleur, ce qui donne un cadre comparatif plus riche que celui de
+travaux limites a un seul jeu de donnees.
 
-\section{Analyse des ecarts restants}
+\subsection{Limites de l'approche}
 
-Les ecarts entre nos resultats et ceux du papier peuvent raisonnablement
-s'expliquer par plusieurs facteurs cumulatifs.
+La reproduction met egalement en evidence plusieurs limites.
 
-\subsection{Difference de modele LLM}
+La premiere concerne la dependance au LLM utilise dans la boucle. Le
+comportement du pipeline est sensible a la qualite des jugements
+\texttt{Good/Bad} et au nommage des clusters ; toute difference de modele peut
+donc affecter significativement les resultats.
 
-Le papier utilise un \texttt{Llama-7B} fine-tune pour les benchmarks anglais,
-alors que notre meilleure configuration executable repose sur
-\texttt{Mistral-7B-Instruct}. Ce changement affecte probablement :
-\begin{itemize}[leftmargin=*]
-  \item la qualite des jugements \texttt{Good/Bad} ;
-  \item la stabilite du namer ;
-  \item la sensibilite aux formulations de prompts.
-\end{itemize}
+La deuxieme tient au role du sampling, du merge et de la recherche de
+\texttt{K}. Ces composantes ont un impact structurel sur le niveau de
+fragmentation final, mais le papier ne permet pas toujours de les reconstruire
+integralement a partir des seules ressources publiques.
 
-\subsection{Sampling encore approximatif}
+La troisieme limite est d'ordre computationnel. Le recours repete au LLM dans
+la boucle de clustering augmente le cout d'execution et complique la
+reproductibilite stricte lorsque les memes ressources logicielles ou materielles
+ne sont pas disponibles.
 
-Le papier signale explicitement l'interet du \texttt{convex sampling}. Notre
-pipeline en propose maintenant une approximation, mais pas l'algorithme
-original exact.
+\subsection{Discussion du protocole d'evaluation des auteurs}
 
-\subsection{Merge final simplifie}
+Le protocole d'evaluation des auteurs presente un interet indeniable. L'usage
+combine de la NMI et d'un \emph{goodness score} permet de distinguer la qualite
+externe de la partition et sa coherence semantique interne. Ce choix est
+methodologiquement pertinent dans le cadre du clustering d'intentions.
 
-Le merge utilise encore une logique plus simple que le merge probabiliste
-discute dans le papier. Cela peut contribuer a la sur-fragmentation observee
-sur certains benchmarks.
-
-\subsection{Recherche de \texttt{K}}
-
-Nos listes de \texttt{K} candidates restent heuristiques. Or le papier insiste
-sur la selection dynamique de l'espace de recherche et sur l'importance de ce
-point pour l'efficacite globale du pipeline.
+Toutefois, plusieurs limites doivent etre soulignees. D'abord, la NMI, bien
+qu'utile, ne capture pas a elle seule l'ensemble de la qualite semantique des
+clusters. Ensuite, l'absence des checkpoints fine-tunes utilises dans le papier
+rend difficile une reproduction strictement equivalente de l'evaluation
+rapportee. Enfin, les resultats obtenus dans notre reproduction montrent que la
+reaction a une meme configuration varie sensiblement selon les benchmarks, ce
+qui plaide pour une lecture benchmark par benchmark plutot que pour une
+interpretation globalisante.
 
 \section{Bilan}
 
-La reproduction obtenue est suffisamment solide pour soutenir les conclusions
-suivantes :
-\begin{itemize}[leftmargin=*]
-  \item le coeur de l'approche du papier a bien ete reconstruit et execute de
-  bout en bout ;
-  \item la comparaison sur les benchmarks anglais est pertinente et
-  techniquement defensible ;
-  \item la methode reproduite reste proche des resultats du papier sur
-  plusieurs jeux de donnees ;
-  \item les ecarts restants sont localises, explicables, et peuvent faire
-  l'objet d'une amelioration ciblee.
-\end{itemize}
-
-En particulier, la reproduction actuelle est deja forte sur Bank77 et MTOP(I),
-et raisonnablement proche sur CLINC(I) et Massive(I) compte tenu des
-contraintes d'acces aux modeles et des simplifications d'implementation.
-
-\section{Suite du travail}
-
-Au vu des resultats obtenus, la suite la plus logique du projet n'est plus de
-relancer des benchmarks bruts, mais de cibler les leviers susceptibles de
-reduire les ecarts restants :
-\begin{enumerate}[leftmargin=*]
-  \item ameliorer encore le comportement du couple coherence / naming ;
-  \item reduire la sur-fragmentation des clusters finaux ;
-  \item revisiter la recherche de \texttt{K} ;
-  \item tester, si possible, une alternative plus proche du \texttt{Llama-7B}
-  du papier.
-\end{enumerate}
-
-Ainsi, cette phase de reproduction constitue a la fois :
-\begin{itemize}[leftmargin=*]
-  \item une validation experimentale de la methode ;
-  \item une base propre pour les ameliorations algorithmiques proposees dans la
-  suite du projet.
-\end{itemize}
+La reproduction obtenue constitue une base experimentale solide. Elle permet de
+valider le coeur de la methode dans un cadre realisticement reproductible, tout
+en localisant de maniere argumentee les principales sources d'ecart avec le
+papier. Cette baseline servira de point de comparaison pour l'ensemble des
+evaluations complementaires et des modifications methodologiques presentees
+dans le chapitre suivant.

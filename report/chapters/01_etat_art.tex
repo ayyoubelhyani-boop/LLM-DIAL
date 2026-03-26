@@ -1,0 +1,194 @@
+\chapter{Etat de l'art}
+
+\section{Cadre general}
+
+Le clustering d'intentions occupe une place importante dans les systemes de
+dialogue orientes tache et, plus largement, dans les applications de service
+client. Il s'agit de regrouper automatiquement des enonces selon l'intention
+qu'ils expriment, y compris lorsque ces enonces different fortement sur le plan
+lexical. Une telle tache presente un interet applicatif evident, puisqu'elle
+facilite la construction de taxonomies d'intentions, la structuration de
+donnees d'apprentissage et l'analyse de grands volumes de conversations.
+
+La difficulte du probleme tient au fait que la proximite lexicale ne coincide
+pas toujours avec la proximite fonctionnelle. Deux formulations proches peuvent
+relever d'intentions distinctes, tandis que deux enonces lexicalement eloignes
+peuvent correspondre au meme besoin utilisateur. Cette observation limite la
+portee des approches reposant exclusivement sur la proximite geometrique entre
+representations vectorielles.
+
+Dans ce contexte, l'article \emph{Dial-In LLM: Human-Aligned LLM-in-the-loop
+Intent Clustering for Customer Service Dialogues}~\cite{hong2025dialinllm}
+propose d'integrer les grands modeles de langage au coeur du processus de
+clustering. Afin de situer cette contribution, il convient d'examiner les
+travaux anterieurs relatifs au clustering textuel guide par LLM, a la
+decouverte d'intentions et a l'evaluation de la coherence semantique.
+
+\section{Clustering textuel guide par les grands modeles de langage}
+
+L'essor des grands modeles de langage a profondement renouvelle les approches
+de clustering textuel. Les methodes classiques s'appuient en general sur des
+representations vectorielles fixes, puis sur des algorithmes tels que
+\emph{K-Means} ou le clustering hierarchique. Des travaux recents montrent
+toutefois que les LLM peuvent apporter un signal semantique plus riche, utile
+pour guider l'organisation de l'espace de clustering.
+
+Dans cette perspective, plusieurs approches \emph{LLM-guided} ont ete
+proposees. \emph{ClusterLLM} montre que des preferences exprimees par un modele
+de langage peuvent servir a orienter la structuration des
+clusters~\cite{zhang2023clusterllm}. D'autres travaux s'interessent a
+l'utilisation des LLM dans des regimes faiblement supervises ou a faible nombre
+d'exemples~\cite{viswanathan2024fewshot}. Enfin, certaines methodes
+interviennent a un stade de raffinement a posteriori en ciblant les points
+frontieres susceptibles de perturber le regroupement, comme dans
+\emph{LLMEdgeRefine}~\cite{feng2024llmedgerefine}.
+
+L'ensemble de ces travaux montre que les LLM peuvent contribuer a la
+structuration des donnees autrement que comme simples generateurs de texte. Il
+reste cependant frequent qu'ils occupent une position peripherique dans le
+pipeline, intervenant soit en amont pour enrichir les representations, soit en
+aval pour corriger les regroupements~\cite{hong2025dialinllm}. C'est
+precisement sur ce point que le papier etudie se distingue.
+
+\section{Decouverte et clustering d'intentions}
+
+Le clustering d'intentions se distingue du clustering textuel general par sa
+granularite et par sa finalite. Il ne s'agit pas seulement d'identifier des
+themes, mais de retrouver la fonction communicative d'un enonce. Dans les
+dialogues orientes tache, cette exigence est determinante, car un meme theme
+peut recouvrir plusieurs intentions operationnellement distinctes.
+
+Plusieurs travaux ont explore cette direction. Gung et al. etudient
+l'induction d'intentions a partir de conversations dans le cadre des systemes
+de dialogue orientes tache~\cite{gung2023intent}. D'autres approches se
+placent dans le cadre de la decouverte de nouvelles intentions a partir de
+donnees peu ou partiellement annotees. Lin et al. proposent un clustering
+adaptatif avec raffinement de clusters~\cite{lin2020discovering}, tandis que
+Zhang et al. developpent une strategie de \emph{deep aligned clustering}
+destinee a ameliorer la separation semantique entre intentions
+emergentes~\cite{zhang2021discovering}. Dans une perspective voisine, Kumar et
+al. introduisent une approche semi-supervisee fondee sur un clustering
+contrastif profond pour combiner detection et decouverte
+d'intentions~\cite{kumar2022intent}.
+
+Des travaux plus recents ont cherche a articuler petits modeles specialises et
+LLM pour la decouverte conversationnelle d'intentions
+~\cite{liang2024synergizing}. La methode \emph{IDAS}, quant a elle, exploite
+des resumes abstraits generes afin d'enrichir la representation semantique des
+enonces avant clustering~\cite{deraedt2023idas}.
+
+Ces contributions ont fait progresser la prise en compte de la semantique dans
+le clustering d'intentions. Elles laissent cependant ouvertes plusieurs
+questions relatives a l'integration explicite d'un jugement de coherence dans
+la boucle de clustering et a la robustesse de ces approches sur des corpus de
+service client de grande taille~\cite{hong2025dialinllm}.
+
+\section{Limites des approches existantes}
+
+Plusieurs limites recurrentes apparaissent dans cette litterature.
+
+La premiere est la dependance persistante a la proximite entre embeddings. Dans
+le cas des intentions conversationnelles, une telle proximite ne garantit ni la
+coherence fonctionnelle, ni une bonne separation entre
+clusters~\cite{hong2025dialinllm}.
+
+La deuxieme tient au cout computationnel des approches guidees par LLM. Ce cout
+peut provenir d'un grand nombre d'appels au modele, de procedures de
+raffinement successives ou du recours a des annotations
+auxiliaires~\cite{zhang2023clusterllm,deraedt2023idas,viswanathan2024fewshot,feng2024llmedgerefine}.
+
+La troisieme concerne l'evaluation. La \emph{Normalized Mutual Information}
+(NMI), bien qu'utile, ne rend pas compte a elle seule de la coherence
+semantique des groupes et peut presenter certains biais de
+partition~\cite{jerdee2024nmi}. Dans le cadre du clustering d'intentions, la
+qualite d'une partition ne se reduit donc pas a son alignement avec une
+annotation de reference.
+
+\section{Positionnement de \emph{Dial-In LLM}}
+
+\emph{Dial-In LLM} s'inscrit en reponse directe a ces limites. L'originalite du
+papier ne tient pas uniquement a l'usage d'un LLM, mais a la place qui lui est
+accordee dans la methode. Le modele de langage n'est pas mobilise comme un
+simple outil auxiliaire, mais comme un composant central d'un schema
+\emph{LLM-in-the-loop} ou il intervient directement dans l'evaluation de
+clusters intermediaires~\cite{hong2025dialinllm}.
+
+Les auteurs introduisent plus precisement deux modules. Le premier est un
+evaluateur de coherence semantique, charge de juger si un cluster peut etre
+retenu. Le second est un generateur de noms d'intentions, qui produit un
+libelle interpretable de type \emph{Action-Objective}. Cette double
+architecture fournit a la fois un signal semantique explicite pour la decision
+et une couche d'interpretabilite supplementaire.
+
+Cette orientation rejoint des travaux plus anciens sur la coherence semantique
+des structures textuelles. Foltz et al. ont montre l'importance de la
+coherence dans l'analyse du texte~\cite{foltz1998measurement}, tandis que
+Mimno et al. ont souligne son interet dans l'evaluation de structures
+thematiques~\cite{mimno2011optimizing}. \emph{Dial-In LLM} prolonge cette idee
+en faisant du jugement de coherence un critere operationnel de selection du
+nombre de clusters et de validation des resultats
+intermediaires~\cite{hong2025dialinllm}.
+
+\section{Apports methodologiques du papier}
+
+Le papier se distingue egalement par plusieurs choix methodologiques precis.
+
+Le premier est le caractere iteratif du clustering. A chaque iteration,
+plusieurs valeurs candidates de \texttt{K} sont testees. Les clusters obtenus
+sont evalues par le LLM, qui les classe comme \emph{Good} ou \emph{Bad}. Les
+groupes juges coherents sont conserves, tandis que les enonces restants sont
+reclusterises lors de l'iteration suivante~\cite{hong2025dialinllm}.
+
+Le deuxieme est l'utilisation des noms generes comme support d'une etape de
+fusion semantique. Les libelles sont projetes dans un espace hyperspherique,
+puis compares au moyen d'une distance geodesique. Les auteurs s'appuient sur
+un critere probabiliste inspire des distributions de von Mises-Fisher pour
+decider des fusions entre clusters proches
+~\cite{fletcher2004principal,banerjee2005clustering,hong2025dialinllm}.
+
+Le troisieme est la prise en compte explicite du contexte conversationnel. Dans
+les dialogues de service client, la signification d'un enonce depend du role du
+locuteur et de sa position dans l'echange, ce qui rend ce facteur
+particulierement important~\cite{hong2025dialinllm}.
+
+\section{Jeux de donnees et protocole d'evaluation}
+
+Le positionnement du papier se renforce enfin par le choix des jeux de donnees
+et par son protocole d'evaluation. En plus des benchmarks anglais BANK77,
+CLINC(I), MTOP(I) et MASSIVE(I), les auteurs introduisent un corpus chinois de
+grande ampleur, construit a partir de plus de 100\,000 appels reels et annote
+en 1\,507 clusters d'intentions. Ce corpus est presente comme plus vaste et
+plus representatif des usages industriels que les jeux de donnees classiquement
+mobilises dans la litterature
+~\cite{casanueva2020efficient,larson2019evaluation,fitzgerald2023massive,hong2025dialinllm}.
+
+L'evaluation ne repose pas uniquement sur la NMI. Les auteurs introduisent
+egalement un \emph{goodness score}, destine a estimer la proportion de clusters
+juges semantiquement coherents. Cette articulation entre mesure externe et
+mesure interne constitue l'un des points les plus interessants du protocole
+propose~\cite{jerdee2024nmi,hong2025dialinllm}.
+
+\section{Lien avec le present travail}
+
+Cet etat de l'art fournit le cadre conceptuel du projet de reproduction mene
+ici. Il permet de situer l'article etudie par rapport aux travaux les plus
+directement lies au clustering guide par LLM, a la decouverte d'intentions et a
+l'evaluation de la coherence semantique. Cette mise en perspective est
+necessaire pour distinguer ce qui releve d'une reproduction du protocole, ce
+qui releve d'une adaptation imposee par les ressources disponibles et ce qui
+releve des ameliorations proposees dans la suite du rapport.
+
+\section{Conclusion}
+
+L'etat de l'art montre que les travaux recents ont progressivement deplace le
+clustering textuel vers des approches davantage sensibles a la semantique,
+notamment grace a l'apport des grands modeles de langage. Toutefois, dans la
+majorite des cas, ces modeles demeurent situes en marge du processus de
+clustering.
+
+\emph{Dial-In LLM} se distingue par une integration beaucoup plus forte du LLM
+dans la boucle de decision. Cette caracteristique justifie l'interet
+scientifique du present travail de reproduction : l'enjeu n'est pas seulement
+de reexecuter un pipeline, mais d'evaluer de maniere critique une proposition
+methodologique recente, ses conditions de reproductibilite et la portee de ses
+ameliorations possibles.

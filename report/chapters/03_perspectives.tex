@@ -1,106 +1,67 @@
-\chapter{Ameliorations de la methode}
+\chapter{Evaluations complementaires et modifications proposees}
 
-Apres la phase de reproduction, la suite logique du projet consiste a tester
-des modifications ciblees du pipeline afin d'identifier les leviers qui
-ameliorent reellement la methode. L'objectif de ce chapitre n'est pas
-seulement de lister des variantes, mais de mesurer ce qu'elles apportent par
-rapport a la baseline de reproduction definie au chapitre precedent. Nous
-avons commence par deux familles d'intervention : d'abord le couple
-\texttt{coherence / naming}, puis le merge final entre clusters nommes. Ces
-deux composantes etaient les candidates les plus naturelles, car elles
-influencent directement la qualite des clusters acceptes et le niveau de
-fragmentation en sortie.
+\section{Positionnement du chapitre}
 
-Les experiences presentees ici correspondent a la phase exploratoire
-d'amelioration. Elles ont ete menees avant la campagne comparative finale
-standardisee decrite au chapitre suivant. Pour cette raison, certaines valeurs
-intermediaires, notamment sur Massive(I), peuvent differer legerement des
-scores de reproduction finalement figes dans la campagne officielle
-\texttt{out/final\_campaign}. L'ordre relatif des variantes et les tendances
-observees restent cependant les memes.
+Ce chapitre regroupe les travaux menes au-dela de la reproduction stricte du
+papier. Il couvre, d'une part, les evaluations complementaires conduites afin
+de tester la robustesse du pipeline sur les benchmarks les plus difficiles et,
+d'autre part, les modifications algorithmiques et d'optimisation introduites
+pour ameliorer la qualite ou la stabilite de l'implementation.
 
-\section{Premiere amelioration : \texttt{coherence / naming}}
+Les experiences presentees ici relevent d'une phase d'exploration methodique
+anterieure a la campagne comparative finale standardisee. Certaines valeurs
+intermediaires peuvent donc differer legerement des scores finalement retenus
+dans la synthese globale, sans que cela ne modifie la hierarchie des variantes
+ni les enseignements tires de ces ablations.
+
+\section{Cadre experimental des evaluations complementaires}
+
+Toutes les experiences ont ete executees dans le meme environnement que la
+baseline de reproduction, sur le serveur Jupyter du projet et sur le second GPU
+physique. Afin de conserver la comparabilite des resultats, les composantes
+suivantes ont ete maintenues constantes sauf mention contraire :
+\begin{itemize}[leftmargin=*]
+  \item embeddings \texttt{BAAI/bge-large-en-v1.5} ;
+  \item LLM local \texttt{mistralai/Mistral-7B-Instruct-v0.3} ;
+  \item clustering par \texttt{MiniBatchKMeans} ;
+  \item memes jeux de donnees et memes scripts d'evaluation.
+\end{itemize}
+
+Les evaluations complementaires ont principalement ete concentrees sur
+CLINC(I) et Massive(I), car ce sont les deux benchmarks pour lesquels la
+reproduction etait la plus en retrait vis-a-vis du papier. Ce choix permet de
+tester les variantes dans le regime ou leur impact potentiel est le plus
+informatif.
+
+\section{Premiere proposition : revision du bloc \texttt{coherence / naming}}
 
 \subsection{Motivation}
 
-Deux constats issus de la reproduction ont motive ce choix :
-\begin{itemize}[leftmargin=*]
-  \item le sampling \texttt{convex} approche n'avait pas permis de recuperer
-  l'ecart au papier ;
-  \item plusieurs benchmarks montraient encore une fragmentation importante des
-  clusters finaux, ce qui laissait penser que la qualite des jugements
-  \texttt{Good/Bad} et des labels jouait un role important.
-\end{itemize}
+La baseline de reproduction a montre que la qualite du bloc
+\texttt{coherence / naming} etait susceptible d'affecter a la fois
+l'acceptation des clusters intermediaires et la qualite du merge final. Deux
+points ont donc ete cibles : la formulation des prompts utilises pour
+l'evaluation de coherence et la selection des phrases presentees au generateur
+de noms.
 
-Dans cette perspective, l'objectif n'etait pas encore de changer l'algorithme
-de clustering lui-meme, mais de rendre plus fiable l'etape
-LLM-in-the-loop qui decide quels clusters sont acceptes et comment ils sont
-nommes avant le merge final.
+\subsection{Modification proposee}
 
-\subsection{Modifications techniques apportees}
+Deux modifications complementaires ont ete introduites.
 
-La premiere amelioration comporte deux changements complementaires.
+La premiere consiste a remplacer les prompts minimaux de la baseline par un
+mode \texttt{benchmark} plus contraint. Cette variante explicite davantage les
+criteres de coherence, impose un format de sortie strict et resserre la
+consigne de nommage autour de labels de type verbe-objet.
 
-\subsection{Prompts plus stricts pour l'evaluation et le naming}
-
-Le premier changement consiste a remplacer les prompts locaux minimaux par une
-version plus proche d'un protocole de benchmark. Cette variante, exposee via le
-mode \texttt{benchmark}, introduit :
-\begin{itemize}[leftmargin=*]
-  \item une consigne plus stricte sur le format de sortie ;
-  \item une definition plus explicite de ce qu'est un cluster coherent ;
-  \item deux exemples positifs et negatifs pour guider la decision ;
-  \item des consignes de nommage plus precises pour produire des labels de type
-  verbe-objet.
-\end{itemize}
-
-L'hypothese etait qu'un meilleur cadrage du LLM reduirait les faux positifs
-dans la coherence et produirait des labels plus stables pour le merge.
-
-\subsection{Echantillonnage plus representatif pour le naming}
-
-Le deuxieme changement concerne la maniere de choisir les phrases envoyees au
-namer. Dans la baseline, les premieres phrases du cluster etaient transmises
-telles quelles. Cette strategie est simple, mais elle peut etre sensible a
-l'ordre des donnees et peu representative d'un cluster large.
-
-Une nouvelle strategie \texttt{centroid} a donc ete ajoutee. Elle repose sur :
-\begin{itemize}[leftmargin=*]
-  \item une vectorisation TF-IDF interne au cluster ;
-  \item un calcul du centroide moyen des phrases ;
-  \item la selection des phrases les plus proches de ce centroide.
-\end{itemize}
-
-L'idee est de fournir au namer un echantillon plus central et plus stable, afin
-d'ameliorer la qualite des labels produits.
-
-\subsection{Protocole experimental}
-
-Cette amelioration a ete evaluee directement sur le serveur Jupyter du projet,
-dans \texttt{/nfs/LLM-DIAL}, en conservant exactement les contraintes de la
-reproduction precedente :
-\begin{itemize}[leftmargin=*]
-  \item utilisation de \texttt{cuda:1} uniquement ;
-  \item caches et artefacts conserves dans le depot ;
-  \item meme backbone d'embeddings \texttt{BAAI/bge-large-en-v1.5} ;
-  \item meme LLM local \texttt{mistralai/Mistral-7B-Instruct-v0.3} ;
-  \item meme clusterer \texttt{MiniBatchKMeans} ;
-  \item memes listes de candidats \texttt{K} que dans la baseline.
-\end{itemize}
-
-Pour isoler l'effet de la modification, seuls les parametres suivants ont ete
-changes :
-\begin{itemize}[leftmargin=*]
-  \item \texttt{llm\_prompt\_style = benchmark} ;
-  \item \texttt{naming\_sampler = centroid}.
-\end{itemize}
-
-Le test a ete mene en priorite sur les deux benchmarks pour lesquels la marge
-d'amelioration paraissait la plus interessante : CLINC(I) et Massive(I).
+La seconde consiste a remplacer le naming fonde sur les premieres phrases du
+cluster par une strategie \texttt{centroid}. Celle-ci construit une
+representation TF-IDF interne au cluster, calcule un centroide moyen, puis
+selectionne les phrases les plus proches de ce centroide. L'objectif est de
+fournir au LLM un echantillon plus central et plus stable.
 
 \subsection{Resultats}
 
-Les resultats obtenus sont resumes dans le
+Les resultats de cette premiere proposition sont presentes dans le
 tableau~\ref{tab:first-improvement-results}.
 
 \begin{table}[h]
@@ -114,104 +75,40 @@ tableau~\ref{tab:first-improvement-results}.
     Massive(I) & 74.02 & 73.77 & -0.25 & 85.21 & 106 \\
     \bottomrule
   \end{tabular}
-  \caption{Impact de la premiere amelioration sur les benchmarks cibles.}
+  \caption{Effet de la revision du bloc \texttt{coherence / naming}.}
   \label{tab:first-improvement-results}
 \end{table}
 
-Une lecture plus detaillee montre que :
-\begin{itemize}[leftmargin=*]
-  \item sur CLINC(I), la modification apporte un gain net de 0.89 point de
-  NMI, avec une meilleure couverture que dans la baseline ;
-  \item sur Massive(I), l'effet est legerement negatif, avec une baisse de 0.25
-  point de NMI et une hausse du nombre de clusters finaux.
-\end{itemize}
+\subsection{Discussion}
 
-Cette premiere amelioration produit donc un resultat mitige : elle est
-prometteuse sur CLINC(I), mais pas encore suffisamment robuste pour etre
-consideree comme une amelioration generale de la methode.
+Cette premiere proposition produit un effet contraste. Le gain observe sur
+CLINC(I) suggere qu'un meilleur cadrage du LLM peut effectivement ameliorer la
+qualite du clustering. En revanche, la baisse observee sur Massive(I) montre
+que l'effet du bloc \texttt{coherence / naming} demeure benchmark-dependant. La
+modification ne peut donc pas etre retenue isolement comme amelioration
+universelle, meme si elle constitue un levier pertinent.
 
-\subsection{Interpretation}
-
-Ces resultats permettent deja de tirer plusieurs enseignements utiles.
-
-D'une part, l'amelioration observee sur CLINC(I) confirme que le bloc
-\texttt{coherence / naming} constitue bien un levier pertinent. Le gain obtenu
-sans changer ni les embeddings ni l'algorithme de clustering suggere que la
-qualite du cadrage du LLM et la representativite des phrases nommees ont un
-effet mesurable sur la qualite finale du clustering.
-
-D'autre part, la baisse sur Massive(I) montre que les deux changements testes
-simultanement ne se comportent pas de maniere uniforme selon le benchmark. Il
-reste donc a distinguer ce qui vient :
-\begin{itemize}[leftmargin=*]
-  \item du nouveau prompt de coherence ;
-  \item du nouveau prompt de naming ;
-  \item de la strategie \texttt{centroid} utilisee pour choisir les phrases a
-  nommer.
-\end{itemize}
-
-Autrement dit, cette experience ne suffit pas encore a dire quel sous-composant
-est responsable du gain sur CLINC(I) ou de la legere degradation sur Massive(I).
-
-\section{Deuxieme amelioration : merge hybride labels + contenu}
+\section{Deuxieme proposition : merge hybride labels + contenu}
 
 \subsection{Motivation}
 
-La premiere amelioration avait montre qu'un meilleur cadrage du bloc
-\texttt{coherence / naming} pouvait deja faire progresser les scores, au moins
-sur CLINC(I). Cependant, un probleme structurel subsistait : le nombre de
-clusters finaux restait eleve, ce qui suggerait une fragmentation excessive
-apres le naming.
+La premiere proposition laissait subsister une fragmentation importante des
+sorties. Le merge final apparaissait donc comme une cible naturelle. Dans la
+baseline, la fusion repose uniquement sur la similarite des labels produits par
+le namer. Une telle strategie est interpretable, mais elle est vulnerable aux
+variations lexicales du nommage.
 
-Le merge final constituait donc le levier suivant le plus naturel. Dans la
-baseline, ce merge reposait uniquement sur la similarite entre labels produits
-par le namer. Cette strategie est simple et interpretable, mais elle depend
-fortement de la qualite du label genere. Deux clusters semantiquement proches
-mais nommes differemment peuvent alors rester separes.
+\subsection{Modification proposee}
 
-\subsection{Modification technique apportee}
-
-Une nouvelle variante \texttt{hybrid} a ete ajoutee au merge final. Elle
-combine :
-\begin{itemize}[leftmargin=*]
-  \item une similarite de labels, calculee comme dans la baseline a partir de
-  TF-IDF caractere ;
-  \item une similarite de contenu, construite a partir des phrases des clusters
-  eux-memes.
-\end{itemize}
-
-Le score final de merge est une combinaison lineaire de ces deux composantes,
-avec un poids de label controle par un hyperparametre
-\texttt{merge\_label\_weight}. L'intuition est la suivante :
-\begin{itemize}[leftmargin=*]
-  \item la similarite de label preserve la lisibilite du merge ;
-  \item la similarite de contenu permet de fusionner des clusters proches meme
-  lorsque leur nommage n'est pas exactement aligne.
-\end{itemize}
-
-\subsection{Protocole experimental}
-
-Cette deuxieme amelioration a ete evaluee sur le serveur Jupyter dans les memes
-conditions que la premiere, en repartant de la meilleure variante precedente :
-\begin{itemize}[leftmargin=*]
-  \item \texttt{llm\_prompt\_style = benchmark} ;
-  \item \texttt{naming\_sampler = centroid}.
-\end{itemize}
-
-Par-dessus cette configuration, les parametres suivants ont ete actives :
-\begin{itemize}[leftmargin=*]
-  \item \texttt{merge\_strategy = hybrid} ;
-  \item \texttt{merge\_label\_weight = 0.35} ;
-  \item \texttt{theta = 1.0}.
-\end{itemize}
-
-Comme precedemment, l'evaluation a ete concentree sur CLINC(I) et Massive(I),
-les deux benchmarks sur lesquels les ecarts au papier et la fragmentation
-restaient les plus visibles.
+Une strategie de merge \texttt{hybrid} a ete introduite. Elle combine une
+similarite de labels et une similarite de contenu calculee a partir des phrases
+contenues dans les clusters. Le score de fusion est obtenu par combinaison
+lineaire de ces deux composantes, avec un poids de label controle par
+\texttt{merge\_label\_weight}.
 
 \subsection{Resultats}
 
-Les resultats de cette deuxieme amelioration sont resumes dans le
+Les resultats obtenus sont presentes dans le
 tableau~\ref{tab:second-improvement-results}.
 
 \begin{table}[h]
@@ -225,95 +122,41 @@ tableau~\ref{tab:second-improvement-results}.
     Massive(I) & 73.77 & 73.69 & -0.08 & 85.21 & 105 \\
     \bottomrule
   \end{tabular}
-  \caption{Impact du merge hybride au-dessus de la premiere amelioration.}
+  \caption{Effet du merge hybride au-dessus de la premiere proposition.}
   \label{tab:second-improvement-results}
 \end{table}
 
-Cette experience montre que :
-\begin{itemize}[leftmargin=*]
-  \item sur CLINC(I), le merge hybride reduit effectivement la fragmentation,
-  avec un passage de 250 a 243 clusters finaux, mais au prix d'une legere baisse
-  du NMI ;
-  \item sur Massive(I), le nombre de clusters baisse marginalement de 106 a
-  105, avec un score egalement tres legerement plus bas.
-\end{itemize}
+\subsection{Discussion}
 
-\subsection{Interpretation}
+Le merge hybride reduit effectivement la fragmentation, mais le gain obtenu en
+consolidation ne se traduit pas par une amelioration du NMI. Cette observation
+suggere que la calibration retenue ne permet pas encore de convertir
+l'information supplementaire issue du contenu en une meilleure partition
+globale. La proposition est informative, mais elle n'est pas retenue comme
+configuration finale.
 
-Le merge hybride semble donc utile comme outil de consolidation, mais pas
-encore comme meilleure configuration globale du pipeline. Il confirme
-neanmoins un point important : une partie de la fragmentation observee ne vient
-pas seulement de la boucle iterative, mais bien du merge final lui-meme.
-
-En revanche, dans l'etat actuel de calibration, le gain en consolidation n'est
-pas suffisamment fort pour compenser la petite degradation de score. Cela
-suggere que :
-\begin{itemize}[leftmargin=*]
-  \item soit le poids relatif entre labels et contenu n'est pas encore bien
-  ajuste ;
-  \item soit le seuil \texttt{theta} reste trop conservateur ou trop uniforme
-  selon les benchmarks ;
-  \item soit le merge ne constitue pas le principal goulot d'etranglement a ce
-  stade.
-\end{itemize}
-
-\section{Troisieme amelioration : selection adaptative de \texttt{K}}
+\section{Troisieme proposition : selection adaptative de \texttt{K}}
 
 \subsection{Motivation}
 
-Les deux premieres ameliorations avaient surtout agi sur les etapes de decision
-LLM et de consolidation finale. Cependant, un facteur plus structurel restait
-encore sous-exploite : la politique de selection des \texttt{candidate\_ks}.
+Les deux premieres modifications agissaient sur les decisions semantiques et
+sur la consolidation finale. Elles ne traitaient pas directement un facteur
+plus structurel : la politique de selection des \texttt{candidate\_ks}. Or la
+baseline reproduite reutilisait une meme famille de valeurs de \texttt{K} a
+toutes les iterations, ce qui pouvait conduire a une recherche trop agressive
+lorsque l'ensemble restant devenait de petite taille.
 
-Dans la baseline, la meme liste de valeurs de \texttt{K} etait reutilisee a
-toutes les iterations. Ce choix est simple, mais il n'est pas ideal lorsque le
-nombre de phrases restantes chute fortement. Une liste de \texttt{K} adaptee a
-la taille initiale du benchmark peut devenir trop aggressive dans les
-iterations tardives, et conduire a une fragmentation excessive.
+\subsection{Modification proposee}
 
-\subsection{Modification technique apportee}
-
-Une politique adaptative \texttt{sqrt} a ete ajoutee a la boucle iterative.
-L'idee est de faire evoluer les candidats de \texttt{K} en fonction de la
-taille de l'ensemble restant, a partir du ratio :
-\begin{itemize}[leftmargin=*]
-  \item taille restante / taille initiale.
-\end{itemize}
-
-Les valeurs de \texttt{K} sont alors reduites iteration par iteration selon une
-echelle en racine carree, avec un plancher controle par
-\texttt{candidate\_k\_min}. Cette politique a deux objectifs :
-\begin{itemize}[leftmargin=*]
-  \item conserver des valeurs elevees de \texttt{K} en debut de pipeline, quand
-  beaucoup d'intents restent a decouvrir ;
-  \item devenir plus conservative dans les iterations tardives, afin de limiter
-  la sur-fragmentation des clusters restants.
-\end{itemize}
-
-\subsection{Protocole experimental}
-
-Cette troisieme amelioration a ete evaluee sur le serveur Jupyter, toujours
-dans \texttt{/nfs/LLM-DIAL}, en repartant de la meilleure configuration obtenue
-avant cette etape :
-\begin{itemize}[leftmargin=*]
-  \item \texttt{llm\_prompt\_style = benchmark} ;
-  \item \texttt{naming\_sampler = centroid} ;
-  \item merge standard par labels uniquement.
-\end{itemize}
-
-Par-dessus cette base, les nouveaux parametres etaient :
-\begin{itemize}[leftmargin=*]
-  \item \texttt{candidate\_k\_policy = sqrt} ;
-  \item \texttt{candidate\_k\_min = 2}.
-\end{itemize}
-
-Cette experience a de nouveau ete conduite sur CLINC(I) et Massive(I), afin de
-verifier si une meilleure gestion de \texttt{K} permettait de reduire la
-fragmentation tout en augmentant le score final.
+Une politique adaptative \texttt{sqrt} a ete introduite. Cette politique ajuste
+les valeurs candidates de \texttt{K} en fonction du rapport entre la taille
+restante et la taille initiale du benchmark. Les valeurs de \texttt{K} sont
+progressivement reduites selon une echelle en racine carree, avec un plancher
+controle par \texttt{candidate\_k\_min}.
 
 \subsection{Resultats}
 
-Les resultats de cette troisieme amelioration sont resumes dans le
+Les resultats sont presentes dans le
 tableau~\ref{tab:third-improvement-results}.
 
 \begin{table}[h]
@@ -327,91 +170,38 @@ tableau~\ref{tab:third-improvement-results}.
     Massive(I) & 73.77 & 75.68 & +1.91 & 87.56 & 65 \\
     \bottomrule
   \end{tabular}
-  \caption{Impact de la politique adaptative de \texttt{K}.}
+  \caption{Effet de la politique adaptative \texttt{sqrt} pour \texttt{K}.}
   \label{tab:third-improvement-results}
 \end{table}
 
-Les gains observes sont cette fois nettement plus convaincants :
-\begin{itemize}[leftmargin=*]
-  \item sur CLINC(I), le score monte a 92.36, soit un gain de 0.57 point par
-  rapport a la meilleure variante precedente, avec une baisse tres nette du
-  nombre de clusters finaux ;
-  \item sur Massive(I), le score monte a 75.68, soit un gain de 1.91 point,
-  avec une reduction tres forte de la fragmentation, de 106 a 65 clusters.
-\end{itemize}
+\subsection{Discussion}
 
-\subsection{Interpretation}
+Cette troisieme proposition est la plus convaincante de l'ensemble des
+variantes testees. Elle augmente le NMI sur les deux benchmarks consideres tout
+en reduisant fortement la fragmentation, en particulier sur Massive(I). Le
+resultat obtenu confirme que la selection de \texttt{K} constitue une
+composante centrale du comportement du pipeline et non un simple parametre de
+second ordre.
 
-Cette troisieme amelioration est, a ce stade, la plus convaincante du projet.
-Elle confirme que la selection de \texttt{K} n'est pas un simple detail
-d'implementation, mais un levier central du comportement global du pipeline.
-
-Deux enseignements principaux se degagent :
-\begin{itemize}[leftmargin=*]
-  \item la fragmentation observee sur les benchmarks difficiles vient en partie
-  d'une recherche de \texttt{K} trop statique ;
-  \item une politique adaptative simple, sans changer ni l'evaluateur LLM ni le
-  merge, peut produire a la fois un meilleur NMI et un nombre de clusters plus
-  raisonnable.
-\end{itemize}
-
-Le cas de Massive(I) est particulierement instructif, car l'amelioration ne se
-contente pas d'augmenter legerement le score : elle change aussi fortement la
-structure de sortie, en rapprochant le nombre de clusters produits du nombre de
-labels attendus.
-
-\section{Quatrieme amelioration : politique \texttt{focused} pour \texttt{K}}
+\section{Quatrieme proposition : politique \texttt{focused} pour \texttt{K}}
 
 \subsection{Motivation}
 
-Apres les bons resultats obtenus avec la politique adaptative \texttt{sqrt},
-l'idee suivante etait de rendre la recherche de \texttt{K} encore plus
-specifique a l'etat courant du pipeline. Plutot que de recalculer a chaque
-iteration une simple version reduite de la liste initiale, nous avons teste une
-politique \texttt{focused} qui recentre les \texttt{candidate\_ks} autour du
-meilleur \texttt{K} selectionne a l'iteration precedente.
+Apres les gains observes avec la politique \texttt{sqrt}, une variante plus
+concentree a ete testee. L'idee etait de recentrer la recherche autour de la
+meilleure valeur de \texttt{K} selectionnee a l'iteration precedente afin
+d'explorer plus finement une zone jugee prometteuse.
 
-L'intuition etait qu'une telle politique pourrait stabiliser plus rapidement la
-recherche en se concentrant sur une zone de valeurs deja prometteuse, tout en
-restant compatible avec la diminution progressive de l'ensemble restant.
+\subsection{Modification proposee}
 
-\subsection{Modification technique apportee}
-
-La politique \texttt{focused} repose sur deux ingredients :
-\begin{itemize}[leftmargin=*]
-  \item le meilleur \texttt{K} retenu a l'iteration precedente ;
-  \item une mise a l'echelle de ce centre selon la meme logique de reduction
-  progressive que la politique \texttt{sqrt}.
-\end{itemize}
-
-Autour de cette valeur centrale, une petite fenetre de recherche est ensuite
-construite pour produire trois candidats plus concentres. L'objectif est de
-rechercher plus finement autour d'une zone jugée prometteuse, au lieu de
-continuer a balayer une famille de valeurs plus large.
-
-\subsection{Protocole experimental}
-
-Cette quatrieme amelioration a ete testee sur le serveur Jupyter, toujours
-dans \texttt{/nfs/LLM-DIAL}, en repartant de la meilleure configuration
-precedente hors politique \texttt{K} :
-\begin{itemize}[leftmargin=*]
-  \item \texttt{llm\_prompt\_style = benchmark} ;
-  \item \texttt{naming\_sampler = centroid} ;
-  \item merge standard par labels uniquement.
-\end{itemize}
-
-Les nouveaux parametres etaient alors :
-\begin{itemize}[leftmargin=*]
-  \item \texttt{candidate\_k\_policy = focused} ;
-  \item \texttt{candidate\_k\_min = 2}.
-\end{itemize}
-
-Les benchmarks retenus sont restes CLINC(I) et Massive(I), afin de comparer
-directement cette nouvelle politique a la meilleure variante \texttt{sqrt}.
+La politique \texttt{focused} combine une reduction progressive de l'echelle de
+recherche et un recentrage autour du meilleur \texttt{K} precedent. Elle
+construit ainsi une fenetre restreinte de candidats, plus locale que celle de
+la politique \texttt{sqrt}.
 
 \subsection{Resultats}
 
-Les resultats sont resumes dans le
+Les resultats correspondants sont resumes dans le
 tableau~\ref{tab:fourth-improvement-results}.
 
 \begin{table}[h]
@@ -429,63 +219,33 @@ tableau~\ref{tab:fourth-improvement-results}.
   \label{tab:fourth-improvement-results}
 \end{table}
 
-Cette quatrieme variante ne depasse donc pas la politique \texttt{sqrt} :
+\subsection{Discussion}
+
+Cette variante ne depasse pas la politique \texttt{sqrt}. Elle reste proche sur
+CLINC(I), mais se revele sensiblement moins efficace sur Massive(I). Le
+recentrage local de la recherche semble donc trop restrictif dans des regimes
+de forte heterogeneite. Cette experience a toutefois mis en evidence un besoin
+de robustesse supplementaire du composant de coherence, ce qui a conduit a
+durcir la gestion des sorties LLM ambigues.
+
+\section{Synthese des evaluations complementaires et des modifications proposees}
+
+Les experiences menees permettent d'etablir une hierarchie claire des leviers
+etudies.
 \begin{itemize}[leftmargin=*]
-  \item sur CLINC(I), elle reste competitive mais legerement en retrait ;
-  \item sur Massive(I), la baisse est plus nette, tant sur le score que sur le
-  nombre de clusters finaux.
+  \item La revision du bloc \texttt{coherence / naming} constitue une
+  amelioration plausible, mais son effet n'est pas uniforme selon les
+  benchmarks.
+  \item Le merge hybride apporte une information utile sur la fragmentation,
+  sans s'imposer comme meilleure solution globale.
+  \item La politique adaptative \texttt{sqrt} pour \texttt{K} est la proposition
+  la plus efficace et la plus robuste.
+  \item La politique \texttt{focused} ne doit pas etre retenue comme
+  configuration finale, mais elle a contribue a renforcer la robustesse
+  pratique du pipeline.
 \end{itemize}
 
-\subsection{Interpretation}
-
-Le principal enseignement de cette quatrieme experience est que la recherche de
-\texttt{K} ne doit pas devenir trop myope. Recentrer la recherche autour du
-meilleur \texttt{K} precedent semble intuitif, mais cela peut enfermer le
-pipeline dans une zone trop locale et reduire sa capacite d'adaptation sur des
-benchmarks heterogenes.
-
-Cette tentative a aussi mis en evidence un autre point utile pour le projet :
-le LLM local peut encore produire des sorties ambigues comme \texttt{Maybe}
-dans les cas difficiles. Pour eviter qu'un run complet s'arrete sur ce type de
-reponse, le module de coherence a ete renforce avec :
-\begin{itemize}[leftmargin=*]
-  \item un \emph{retry} plus strict lorsque la sortie n'est ni \texttt{Good}
-  ni \texttt{Bad} ;
-  \item un repli conservateur vers \texttt{Bad} si la reponse reste invalide.
-\end{itemize}
-
-Ainsi, meme si la politique \texttt{focused} n'est pas retenue comme meilleure
-variante, elle a tout de meme permis d'ameliorer la robustesse pratique du
-pipeline.
-
-\section{Suite immediate}
-
-Les quatre premieres ameliorations permettent deja de mieux cerner le paysage
-des leviers utiles :
-\begin{itemize}[leftmargin=*]
-  \item le bloc \texttt{coherence / naming} est un levier prometteur, avec un
-  effet positif net sur CLINC(I) ;
-  \item le merge hybride aide a reduire la fragmentation, mais ne s'impose pas
-  encore comme meilleure configuration globale ;
-  \item la selection adaptative de \texttt{K} est, a ce stade, le levier le
-  plus efficace et le plus robuste parmi les ameliorations testees ;
-  \item la politique \texttt{focused} n'ameliore pas les scores, mais elle a
-  permis de renforcer la robustesse du composant de coherence.
-\end{itemize}
-
-La suite technique la plus logique est donc :
-\begin{enumerate}[leftmargin=*]
-  \item conduire une ablation fine sur la premiere amelioration, en separant le
-  prompt \texttt{benchmark} du \texttt{naming sampler} \texttt{centroid} ;
-  \item conserver \texttt{sqrt} comme meilleure politique \texttt{K} de
-  reference, puis explorer eventuellement des variantes benchmark-specifiques
-  plutot qu'un recentrage trop agressif ;
-  \item ne revenir sur le merge que dans un second temps, avec une calibration
-  plus systematique de \texttt{theta} et du poids labels / contenu.
-\end{enumerate}
-
-Au terme de ces experiences, la configuration amelioree la plus convaincante a
-ce stade combine donc :
+La configuration amelioree retenue pour la suite du projet combine donc :
 \begin{itemize}[leftmargin=*]
   \item \texttt{llm\_prompt\_style = benchmark} ;
   \item \texttt{naming\_sampler = centroid} ;
@@ -493,13 +253,4 @@ ce stade combine donc :
   \item un merge final par labels uniquement.
 \end{itemize}
 
-Cette combinaison servira de \emph{baseline amelioree} dans la synthese
-comparative du chapitre suivant. Les autres variantes restent precieuses pour
-documenter les ablations et comprendre le comportement du pipeline, mais ne
-sont pas retenues comme configuration de reference finale. La campagne
-comparative finale montrera ensuite que cette configuration amelioree est
-globalement meilleure sur trois benchmarks sur quatre, tout en restant moins
-performante que la baseline de reproduction sur Bank77. Cette heterogeneite est
-importante : elle montre que les gains apportes par les ameliorations ne sont
-pas uniformes, et qu'ils doivent donc etre interpretes benchmark par
-benchmark.
+Cette configuration sert de reference dans la synthese comparative finale.
