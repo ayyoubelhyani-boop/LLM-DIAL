@@ -1,30 +1,154 @@
-\chapter{Perspectives}
+\chapter{Premiere amelioration de la methode}
 
-La prochaine phase du projet doit maintenant passer d'une reproduction
-fonctionnelle credible a une etude critique plus ambitieuse. Trois axes se
-degagent.
+Apres la phase de reproduction, la suite logique du projet consiste a tester
+des modifications ciblees du pipeline afin d'identifier les leviers qui
+ameliorent reellement la methode. La premiere amelioration retenue a porte sur
+le couple \texttt{coherence / naming}, car il s'agissait du levier le plus
+prometteur au vu des ecarts encore observes sur CLINC(I) et Massive(I).
 
-\section{Fidelite supplementaire}
+\section{Motivation}
 
-Le premier axe consiste a rapprocher encore l'implementation du protocole des
-auteurs. Les priorites identifiees sont l'amelioration du couple coherence /
-naming, une meilleure maitrise de la recherche de \texttt{K}, et une reduction
-de la sur-fragmentation des clusters finaux.
-
-\section{Evaluations complementaires}
-
-Le deuxieme axe consiste a produire des evaluations qui depassent la seule
-reproduction du papier :
+Deux constats issus de la reproduction ont motive ce choix :
 \begin{itemize}[leftmargin=*]
-  \item ablations plus systematiques ;
-  \item nouveaux jeux de donnees ;
-  \item variations d'hyperparametres ;
-  \item comparaisons avec des approches plus simples ou plus classiques.
+  \item le sampling \texttt{convex} approche n'avait pas permis de recuperer
+  l'ecart au papier ;
+  \item plusieurs benchmarks montraient encore une fragmentation importante des
+  clusters finaux, ce qui laissait penser que la qualite des jugements
+  \texttt{Good/Bad} et des labels jouait un role important.
 \end{itemize}
 
-\section{Ameliorations proposees}
+Dans cette perspective, l'objectif n'etait pas encore de changer l'algorithme
+de clustering lui-meme, mais de rendre plus fiable l'etape
+LLM-in-the-loop qui decide quels clusters sont acceptes et comment ils sont
+nommes avant le merge final.
 
-Le troisieme axe vise a transformer le projet en contribution personnelle.
-L'objectif n'est plus seulement de refaire le papier, mais de proposer des
-ameliorations algorithmiques ou computationnelles evaluables, puis de mesurer
-leur impact de maniere rigoureuse.
+\section{Modifications techniques apportees}
+
+La premiere amelioration comporte deux changements complementaires.
+
+\subsection{Prompts plus stricts pour l'evaluation et le naming}
+
+Le premier changement consiste a remplacer les prompts locaux minimaux par une
+version plus proche d'un protocole de benchmark. Cette variante, exposee via le
+mode \texttt{benchmark}, introduit :
+\begin{itemize}[leftmargin=*]
+  \item une consigne plus stricte sur le format de sortie ;
+  \item une definition plus explicite de ce qu'est un cluster coherent ;
+  \item deux exemples positifs et negatifs pour guider la decision ;
+  \item des consignes de nommage plus precises pour produire des labels de type
+  verbe-objet.
+\end{itemize}
+
+L'hypothese etait qu'un meilleur cadrage du LLM reduirait les faux positifs
+dans la coherence et produirait des labels plus stables pour le merge.
+
+\subsection{Echantillonnage plus representatif pour le naming}
+
+Le deuxieme changement concerne la maniere de choisir les phrases envoyees au
+namer. Dans la baseline, les premieres phrases du cluster etaient transmises
+telles quelles. Cette strategie est simple, mais elle peut etre sensible a
+l'ordre des donnees et peu representative d'un cluster large.
+
+Une nouvelle strategie \texttt{centroid} a donc ete ajoutee. Elle repose sur :
+\begin{itemize}[leftmargin=*]
+  \item une vectorisation TF-IDF interne au cluster ;
+  \item un calcul du centroide moyen des phrases ;
+  \item la selection des phrases les plus proches de ce centroide.
+\end{itemize}
+
+L'idee est de fournir au namer un echantillon plus central et plus stable, afin
+d'ameliorer la qualite des labels produits.
+
+\section{Protocole experimental}
+
+Cette amelioration a ete evaluee directement sur le serveur Jupyter du projet,
+dans \texttt{/nfs/LLM-DIAL}, en conservant exactement les contraintes de la
+reproduction precedente :
+\begin{itemize}[leftmargin=*]
+  \item utilisation de \texttt{cuda:1} uniquement ;
+  \item caches et artefacts conserves dans le depot ;
+  \item meme backbone d'embeddings \texttt{BAAI/bge-large-en-v1.5} ;
+  \item meme LLM local \texttt{mistralai/Mistral-7B-Instruct-v0.3} ;
+  \item meme clusterer \texttt{MiniBatchKMeans} ;
+  \item memes listes de candidats \texttt{K} que dans la baseline.
+\end{itemize}
+
+Pour isoler l'effet de la modification, seuls les parametres suivants ont ete
+changes :
+\begin{itemize}[leftmargin=*]
+  \item \texttt{llm\_prompt\_style = benchmark} ;
+  \item \texttt{naming\_sampler = centroid}.
+\end{itemize}
+
+Le test a ete mene en priorite sur les deux benchmarks pour lesquels la marge
+d'amelioration paraissait la plus interessante : CLINC(I) et Massive(I).
+
+\section{Resultats}
+
+Les resultats obtenus sont resumes dans le
+tableau~\ref{tab:first-improvement-results}.
+
+\begin{table}[h]
+  \centering
+  \small
+  \begin{tabular}{lrrrrr}
+    \toprule
+    Benchmark & NMI baseline & NMI ameliore & Delta & Couverture & Clusters \\
+    \midrule
+    CLINC(I) & 90.90 & 91.79 & +0.89 & 97.78 & 250 \\
+    Massive(I) & 74.02 & 73.77 & -0.25 & 85.21 & 106 \\
+    \bottomrule
+  \end{tabular}
+  \caption{Impact de la premiere amelioration sur les benchmarks cibles.}
+  \label{tab:first-improvement-results}
+\end{table}
+
+Une lecture plus detaillee montre que :
+\begin{itemize}[leftmargin=*]
+  \item sur CLINC(I), la modification apporte un gain net de 0.89 point de
+  NMI, avec une meilleure couverture que dans la baseline ;
+  \item sur Massive(I), l'effet est legerement negatif, avec une baisse de 0.25
+  point de NMI et une hausse du nombre de clusters finaux.
+\end{itemize}
+
+Cette premiere amelioration produit donc un resultat mitige : elle est
+prometteuse sur CLINC(I), mais pas encore suffisamment robuste pour etre
+consideree comme une amelioration generale de la methode.
+
+\section{Interpretation}
+
+Ces resultats permettent deja de tirer plusieurs enseignements utiles.
+
+D'une part, l'amelioration observee sur CLINC(I) confirme que le bloc
+\texttt{coherence / naming} constitue bien un levier pertinent. Le gain obtenu
+sans changer ni les embeddings ni l'algorithme de clustering suggere que la
+qualite du cadrage du LLM et la representativite des phrases nommees ont un
+effet mesurable sur la qualite finale du clustering.
+
+D'autre part, la baisse sur Massive(I) montre que les deux changements testes
+simultanement ne se comportent pas de maniere uniforme selon le benchmark. Il
+reste donc a distinguer ce qui vient :
+\begin{itemize}[leftmargin=*]
+  \item du nouveau prompt de coherence ;
+  \item du nouveau prompt de naming ;
+  \item de la strategie \texttt{centroid} utilisee pour choisir les phrases a
+  nommer.
+\end{itemize}
+
+Autrement dit, cette experience ne suffit pas encore a dire quel sous-composant
+est responsable du gain sur CLINC(I) ou de la legere degradation sur Massive(I).
+
+\section{Suite immediate}
+
+La prochaine etape technique la plus logique est donc une ablation plus fine de
+cette premiere amelioration. Il faudra tester separement :
+\begin{enumerate}[leftmargin=*]
+  \item le prompt \texttt{benchmark} seul ;
+  \item le \texttt{naming sampler} \texttt{centroid} seul ;
+  \item la combinaison des deux.
+\end{enumerate}
+
+Cette ablation permettra d'identifier le facteur utile et d'eviter de garder
+une variante qui n'apporte qu'un gain local. Elle servira aussi de base a la
+suite de la phase d'amelioration, avant d'aborder d'autres leviers comme le
+merge final ou la selection de \texttt{K}.
