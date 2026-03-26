@@ -62,6 +62,8 @@ def run_iterative_clustering(
     embeddings: np.ndarray,
     *,
     candidate_ks: Sequence[int],
+    candidate_k_policy: str = "fixed",
+    candidate_k_min: int = 2,
     evaluator: CoherenceEvaluator,
     clusterer: str = "kmeans",
     sample_size: int = 20,
@@ -78,12 +80,16 @@ def run_iterative_clustering(
         raise ValueError("tmax must be positive")
     if not candidate_ks:
         raise ValueError("candidate_ks must not be empty")
+    if candidate_k_min <= 0:
+        raise ValueError("candidate_k_min must be positive")
 
     total_count = len(records)
     remaining_indices = list(range(total_count))
     accepted_clusters: list[IntentCluster] = []
     iteration_summaries: list[IterationSummary] = []
     next_cluster_number = 0
+    previous_selected_k: int | None = None
+    previous_remaining_count: int | None = None
 
     for iteration in range(1, tmax + 1):
         if not remaining_indices:
@@ -93,8 +99,17 @@ def run_iterative_clustering(
 
         candidate_results: list[tuple[ClusterCandidateResult, list[_EvaluatedCluster]]] = []
         subset_embeddings = embeddings[np.asarray(remaining_indices)]
+        iteration_candidate_ks = _resolve_candidate_ks(
+            candidate_ks,
+            remaining_count=len(remaining_indices),
+            total_count=total_count,
+            policy=candidate_k_policy,
+            min_k=candidate_k_min,
+            previous_selected_k=previous_selected_k,
+            previous_remaining_count=previous_remaining_count,
+        )
 
-        for offset, candidate_k in enumerate(candidate_ks):
+        for offset, candidate_k in enumerate(iteration_candidate_ks):
             effective_k = min(int(candidate_k), len(remaining_indices))
             if effective_k <= 0:
                 continue
@@ -151,6 +166,8 @@ def run_iterative_clustering(
             candidate_results,
             key=lambda item: (item[0].score, item[0].good_clusters, -item[0].bad_clusters, -item[0].k),
         )
+        previous_selected_k = best_candidate.k
+        previous_remaining_count = len(remaining_indices)
 
         accepted_this_round: list[str] = []
         accepted_indices: set[int] = set()
@@ -205,3 +222,63 @@ def run_iterative_clustering(
         remaining_sentence_ids=remaining_sentence_ids,
         iterations=iteration_summaries,
     )
+
+
+def _resolve_candidate_ks(
+    candidate_ks: Sequence[int],
+    *,
+    remaining_count: int,
+    total_count: int,
+    policy: str,
+    min_k: int,
+    previous_selected_k: int | None = None,
+    previous_remaining_count: int | None = None,
+) -> list[int]:
+    if remaining_count <= 0:
+        return []
+
+    base_values = sorted({max(int(value), 1) for value in candidate_ks})
+    normalized_policy = policy.strip().lower()
+    if normalized_policy == "fixed":
+        return [min(value, remaining_count) for value in base_values]
+    if normalized_policy == "focused":
+        return _resolve_focused_candidate_ks(
+            base_values,
+            remaining_count=remaining_count,
+            min_k=min_k,
+            previous_selected_k=previous_selected_k,
+            previous_remaining_count=previous_remaining_count,
+        )
+    if normalized_policy != "sqrt":
+        raise ValueError(f"Unknown candidate_k_policy: {policy}")
+
+    ratio = remaining_count / max(total_count, 1)
+    scale = float(np.sqrt(ratio))
+    resolved = {
+        min(max(int(round(value * scale)), min_k), remaining_count)
+        for value in base_values
+    }
+    return sorted(resolved)
+
+
+def _resolve_focused_candidate_ks(
+    base_values: Sequence[int],
+    *,
+    remaining_count: int,
+    min_k: int,
+    previous_selected_k: int | None,
+    previous_remaining_count: int | None,
+) -> list[int]:
+    if previous_selected_k is None or previous_remaining_count is None or previous_remaining_count <= 0:
+        return [min(value, remaining_count) for value in base_values]
+
+    ratio = remaining_count / previous_remaining_count
+    center = int(round(previous_selected_k * np.sqrt(ratio)))
+    center = min(max(center, min_k), remaining_count)
+    window = max(1, int(round(center * 0.35)))
+    focused = {
+        min(max(center - window, min_k), remaining_count),
+        center,
+        min(max(center + window, min_k), remaining_count),
+    }
+    return sorted(focused)

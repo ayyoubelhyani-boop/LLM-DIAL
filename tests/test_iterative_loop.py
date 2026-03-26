@@ -1,7 +1,7 @@
 import numpy as np
 
 from dialin_llm.io import SentenceRecord
-from dialin_llm.iterative import run_iterative_clustering
+from dialin_llm.iterative import _resolve_candidate_ks, run_iterative_clustering
 
 
 class KeywordEvaluator:
@@ -82,3 +82,31 @@ def test_best_k_is_selected_by_good_over_bad_plus_one_score() -> None:
     assert result.iterations[0].selected_k == 3
     scores = {candidate.k: candidate.score for candidate in result.iterations[0].candidate_results}
     assert scores[3] > scores[1]
+
+
+def test_resolve_candidate_ks_supports_sqrt_policy() -> None:
+    fixed = _resolve_candidate_ks([100, 150, 200], remaining_count=450, total_count=4500, policy="fixed", min_k=2)
+    adaptive = _resolve_candidate_ks([100, 150, 200], remaining_count=450, total_count=4500, policy="sqrt", min_k=2)
+
+    assert fixed == [100, 150, 200]
+    assert adaptive == [32, 47, 63]
+
+
+def test_iterative_loop_can_scale_candidate_ks_after_remaining_pool_shrinks() -> None:
+    adaptive = _resolve_candidate_ks([3, 5], remaining_count=3, total_count=5, policy="sqrt", min_k=2)
+
+    assert adaptive == [2, 3]
+
+
+def test_resolve_candidate_ks_supports_focused_policy() -> None:
+    focused = _resolve_candidate_ks(
+        [100, 150, 200],
+        remaining_count=175,
+        total_count=4500,
+        policy="focused",
+        min_k=2,
+        previous_selected_k=31,
+        previous_remaining_count=446,
+    )
+
+    assert focused == [12, 19, 26]

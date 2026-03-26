@@ -198,7 +198,13 @@ class LocalTransformersCoherenceEvaluator:
             return cached == "good"
 
         response = self.generator.generate(_build_coherence_messages(sentences, prompt_style=self.prompt_style))
-        verdict = _parse_good_bad_loose(response)
+        try:
+            verdict = _parse_good_bad_loose(response)
+        except ValueError:
+            retry_response = self.generator.generate(
+                _build_coherence_retry_messages(sentences, prompt_style=self.prompt_style)
+            )
+            verdict = _parse_good_bad_loose_or_default_bad(retry_response)
         self.cache.set(key, verdict)
         return verdict == "good"
 
@@ -394,6 +400,16 @@ def _parse_good_bad_loose(raw: str) -> str:
     raise ValueError(f"Local LLM returned an invalid coherence verdict: {raw!r}")
 
 
+def _parse_good_bad_loose_or_default_bad(raw: str) -> str:
+    try:
+        return _parse_good_bad_loose(raw)
+    except ValueError:
+        normalized = raw.strip().lower()
+        if any(token in normalized for token in {"maybe", "unclear", "unsure", "not sure", "cannot determine"}):
+            return "bad"
+        return "bad"
+
+
 def _validate_label(raw: str) -> str:
     label = _coerce_label(raw)
     if not LABEL_RE.fullmatch(label):
@@ -473,6 +489,44 @@ def _build_coherence_messages(sentences: Sequence[str], *, prompt_style: str) ->
                 "Return only one token: Good or Bad.\n"
                 "Good means the utterances express one intent. Bad means the intent is mixed or unclear.\n"
                 f"Sentences:\n{payload}"
+            ),
+        },
+    ]
+
+
+def _build_coherence_retry_messages(sentences: Sequence[str], *, prompt_style: str) -> list[dict[str, str]]:
+    payload = "\n".join(f"- {sentence}" for sentence in sentences)
+    normalized = prompt_style.strip().lower()
+    if normalized == "benchmark":
+        return [
+            {
+                "role": "system",
+                "content": (
+                    "You are a strict evaluator for intent clustering quality. "
+                    "Reply with exactly one token."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    "Your previous answer was invalid.\n"
+                    "Return exactly one token: Good or Bad.\n"
+                    "If there is any uncertainty, return Bad.\n"
+                    f"Sentences:\n{payload}\n"
+                    "Answer:"
+                ),
+            },
+        ]
+    return [
+        {"role": "system", "content": "Return exactly one token."},
+        {
+            "role": "user",
+            "content": (
+                "Your previous answer was invalid.\n"
+                "Return exactly one token: Good or Bad.\n"
+                "If you are unsure, return Bad.\n"
+                f"Sentences:\n{payload}\n"
+                "Answer:"
             ),
         },
     ]

@@ -1,8 +1,12 @@
 from dialin_llm.llm_utils import (
+    JsonCache,
+    LocalTransformersCoherenceEvaluator,
     _build_coherence_messages,
+    _build_coherence_retry_messages,
     _build_naming_messages,
     _extract_label,
     _parse_good_bad_loose,
+    _parse_good_bad_loose_or_default_bad,
     _resolve_single_device,
     _uses_sharded_device_map,
 )
@@ -43,3 +47,39 @@ def test_benchmark_prompt_style_adds_examples_and_strict_answer_format() -> None
     assert "Answer:" in coherence_messages[1]["content"]
     assert "verb-object labels" in naming_messages[1]["content"]
     assert "track-package" in naming_messages[1]["content"]
+
+
+def test_parse_good_bad_loose_or_default_bad_maps_uncertain_output_to_bad() -> None:
+    assert _parse_good_bad_loose_or_default_bad("Maybe") == "bad"
+    assert _parse_good_bad_loose_or_default_bad("unclear cluster") == "bad"
+
+
+class FakeGenerator:
+    def __init__(self, responses: list[str]) -> None:
+        self.model = "fake-model"
+        self.responses = responses
+        self.calls: list[list[dict[str, str]]] = []
+
+    def generate(self, messages: list[dict[str, str]]) -> str:
+        self.calls.append(messages)
+        return self.responses.pop(0)
+
+
+def test_local_coherence_evaluator_retries_after_invalid_output() -> None:
+    generator = FakeGenerator(["Maybe", "Bad"])
+    evaluator = LocalTransformersCoherenceEvaluator(
+        generator=generator,
+        cache=JsonCache(),
+        prompt_style="benchmark",
+    )
+
+    assert evaluator.coherence_eval(["refund my order", "get refund for purchase"]) is False
+    assert len(generator.calls) == 2
+    assert "previous answer was invalid" in generator.calls[1][1]["content"].lower()
+
+
+def test_build_coherence_retry_messages_requests_strict_binary_answer() -> None:
+    retry_messages = _build_coherence_retry_messages(["refund my order"], prompt_style="benchmark")
+
+    assert "exactly one token" in retry_messages[0]["content"].lower()
+    assert "if there is any uncertainty, return bad" in retry_messages[1]["content"].lower()

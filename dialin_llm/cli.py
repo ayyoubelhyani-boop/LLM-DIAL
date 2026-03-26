@@ -63,11 +63,35 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run_parser.add_argument("--clusterer", default="kmeans", help="Clusterer: kmeans or minibatch")
     run_parser.add_argument("--candidate-ks", required=True, help="Comma-separated candidate K values")
+    run_parser.add_argument(
+        "--candidate-k-policy",
+        default="fixed",
+        choices=["fixed", "sqrt", "focused"],
+        help="How candidate K values evolve across iterations",
+    )
+    run_parser.add_argument(
+        "--candidate-k-min",
+        type=int,
+        default=2,
+        help="Minimum candidate K allowed after adaptive scaling",
+    )
     run_parser.add_argument("--sample-size", type=int, default=20, help="Representative sample size")
     run_parser.add_argument("--sampler", default="farthest", help="Sampler: random or farthest")
     run_parser.add_argument("--epsilon", type=float, default=0.05, help="Stop when remaining fraction <= epsilon")
     run_parser.add_argument("--tmax", type=int, default=5, help="Maximum iterations")
     run_parser.add_argument("--theta", type=float, default=0.8, help="Geodesic merge threshold")
+    run_parser.add_argument(
+        "--merge-strategy",
+        default="label",
+        choices=["label", "hybrid"],
+        help="Merge strategy applied after naming clusters",
+    )
+    run_parser.add_argument(
+        "--merge-label-weight",
+        type=float,
+        default=0.5,
+        help="Label similarity weight when --merge-strategy hybrid",
+    )
     run_parser.add_argument("--seed", type=int, default=0, help="Random seed")
     run_parser.add_argument("--use-llm", default="false", help="Whether to use an LLM-backed evaluator/namer")
     run_parser.add_argument("--llm-provider", default="openai", choices=["openai", "local"], help="LLM provider when --use-llm is true")
@@ -220,6 +244,8 @@ def run_command(args: argparse.Namespace) -> None:
         records,
         embeddings,
         candidate_ks=candidate_ks,
+        candidate_k_policy=args.candidate_k_policy,
+        candidate_k_min=args.candidate_k_min,
         evaluator=evaluator,
         clusterer=args.clusterer,
         sample_size=args.sample_size,
@@ -235,7 +261,13 @@ def run_command(args: argparse.Namespace) -> None:
         sample_size=naming_sample_size,
         sampler=args.naming_sampler,
     )
-    merged_clusters = merge_clusters_by_label(named_clusters, theta=args.theta, seed=args.seed)
+    merged_clusters = merge_clusters_by_label(
+        named_clusters,
+        theta=args.theta,
+        strategy=args.merge_strategy,
+        label_weight=args.merge_label_weight,
+        seed=args.seed,
+    )
 
     summary = _build_summary(run_result, merged_clusters)
     cluster_payload = [_cluster_to_dict(cluster, include_sentences=include_sentences) for cluster in merged_clusters]
@@ -364,11 +396,15 @@ def _resolved_run_config(args: argparse.Namespace, candidate_ks: list[int]) -> d
         "sentence_transformer_cache_dir": _normalize_optional_path(args.sentence_transformer_cache_dir),
         "clusterer": args.clusterer,
         "candidate_ks": candidate_ks,
+        "candidate_k_policy": args.candidate_k_policy,
+        "candidate_k_min": args.candidate_k_min,
         "sample_size": args.sample_size,
         "sampler": args.sampler,
         "epsilon": args.epsilon,
         "tmax": args.tmax,
         "theta": args.theta,
+        "merge_strategy": args.merge_strategy,
+        "merge_label_weight": args.merge_label_weight,
         "seed": args.seed,
         "use_llm": _parse_bool(args.use_llm),
         "llm_provider": args.llm_provider,

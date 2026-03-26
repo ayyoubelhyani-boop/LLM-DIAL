@@ -29,22 +29,34 @@ def merge_clusters_by_label(
     clusters: Sequence[IntentCluster],
     *,
     theta: float = 0.8,
+    strategy: str = "label",
+    label_weight: float = 0.5,
     use_vmf_gate: bool = False,
     kappa: float = 5.0,
     seed: int = 0,
 ) -> list[IntentCluster]:
     if len(clusters) <= 1:
         return list(clusters)
+    if not 0.0 <= label_weight <= 1.0:
+        raise ValueError("label_weight must be between 0.0 and 1.0")
 
     labels = [cluster.label or "general-request" for cluster in clusters]
-    embedder = TfidfEmbeddingBackend(analyzer="char_wb", ngram_range=(3, 5))
-    normalized_embeddings = l2_normalize(embedder.fit_transform(labels))
+    label_embedder = TfidfEmbeddingBackend(analyzer="char_wb", ngram_range=(3, 5))
+    label_embeddings = l2_normalize(label_embedder.fit_transform(labels))
+    content_embeddings = _build_cluster_content_embeddings(clusters) if strategy.strip().lower() == "hybrid" else None
 
     union_find = UnionFind(len(clusters))
     rng = np.random.default_rng(seed)
     for left in range(len(clusters)):
         for right in range(left + 1, len(clusters)):
-            dot = float(np.clip(np.dot(normalized_embeddings[left], normalized_embeddings[right]), -1.0, 1.0))
+            dot = _pairwise_merge_similarity(
+                left,
+                right,
+                label_embeddings=label_embeddings,
+                content_embeddings=content_embeddings,
+                strategy=strategy,
+                label_weight=label_weight,
+            )
             distance = float(np.arccos(dot))
             if distance >= theta:
                 continue
@@ -131,3 +143,38 @@ def _sample_cluster_for_naming(
     scores = sentence_embeddings @ centroid
     ranked_indices = np.argsort(-scores)
     return [sentences[int(idx)] for idx in ranked_indices[:sample_size]]
+
+
+def _build_cluster_content_embeddings(clusters: Sequence[IntentCluster]) -> np.ndarray:
+    documents = [_cluster_content_document(cluster) for cluster in clusters]
+    embedder = TfidfEmbeddingBackend(analyzer="word", ngram_range=(1, 2), min_df=1)
+    return l2_normalize(embedder.fit_transform(documents))
+
+
+def _cluster_content_document(cluster: IntentCluster) -> str:
+    if cluster.sentences:
+        return " ".join(sentence.strip() for sentence in cluster.sentences if sentence.strip())
+    return cluster.label or "general request"
+
+
+def _pairwise_merge_similarity(
+    left: int,
+    right: int,
+    *,
+    label_embeddings: np.ndarray,
+    content_embeddings: np.ndarray | None,
+    strategy: str,
+    label_weight: float,
+) -> float:
+    label_dot = float(np.dot(label_embeddings[left], label_embeddings[right]))
+    normalized = strategy.strip().lower()
+    if normalized == "label":
+        return float(np.clip(label_dot, -1.0, 1.0))
+    if normalized != "hybrid":
+        raise ValueError(f"Unknown merge strategy: {strategy}")
+
+    if content_embeddings is None:
+        raise ValueError("content_embeddings must be provided for hybrid merge")
+    content_dot = float(np.dot(content_embeddings[left], content_embeddings[right]))
+    combined = label_weight * label_dot + (1.0 - label_weight) * content_dot
+    return float(np.clip(combined, -1.0, 1.0))
