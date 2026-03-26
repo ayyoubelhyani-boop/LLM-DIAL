@@ -82,6 +82,24 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--local-llm-trust-remote-code", default="false", help="Whether to trust remote code for the local LLM")
     run_parser.add_argument("--summary-out", default=None, help="Optional summary JSON output path")
     run_parser.add_argument("--config-out", default=None, help="Optional JSON output path for the resolved run configuration")
+    run_parser.add_argument(
+        "--llm-prompt-style",
+        default="simple",
+        choices=["simple", "benchmark"],
+        help="Prompt template style for coherence evaluation and naming",
+    )
+    run_parser.add_argument(
+        "--naming-sample-size",
+        type=int,
+        default=None,
+        help="Optional sample size used only for cluster naming",
+    )
+    run_parser.add_argument(
+        "--naming-sampler",
+        default="head",
+        choices=["head", "centroid"],
+        help="Sentence selection strategy used before naming clusters",
+    )
     run_parser.add_argument("--out", required=True, help="Output JSON path for clusters")
     run_parser.add_argument(
         "--include-sentences",
@@ -172,8 +190,8 @@ def run_command(args: argparse.Namespace) -> None:
     if use_llm:
         cache = JsonCache(args.cache_path)
         if args.llm_provider == "openai":
-            evaluator = OpenAICoherenceEvaluator(model=args.llm_model, cache=cache)
-            namer = OpenAIClusterNamer(model=args.llm_model, cache=cache)
+            evaluator = OpenAICoherenceEvaluator(model=args.llm_model, cache=cache, prompt_style=args.llm_prompt_style)
+            namer = OpenAIClusterNamer(model=args.llm_model, cache=cache, prompt_style=args.llm_prompt_style)
         else:
             generator = LocalTransformersTextGenerator(
                 model=args.local_llm_model,
@@ -184,8 +202,16 @@ def run_command(args: argparse.Namespace) -> None:
                 temperature=args.local_llm_temperature,
                 trust_remote_code=_parse_bool(args.local_llm_trust_remote_code),
             )
-            evaluator = LocalTransformersCoherenceEvaluator(generator=generator, cache=cache)
-            namer = LocalTransformersClusterNamer(generator=generator, cache=cache)
+            evaluator = LocalTransformersCoherenceEvaluator(
+                generator=generator,
+                cache=cache,
+                prompt_style=args.llm_prompt_style,
+            )
+            namer = LocalTransformersClusterNamer(
+                generator=generator,
+                cache=cache,
+                prompt_style=args.llm_prompt_style,
+            )
     else:
         evaluator = DummyCoherenceEvaluator()
         namer = DummyClusterNamer()
@@ -202,7 +228,13 @@ def run_command(args: argparse.Namespace) -> None:
         tmax=args.tmax,
         seed=args.seed,
     )
-    named_clusters = name_clusters(run_result.clusters, namer, sample_size=args.sample_size)
+    naming_sample_size = args.naming_sample_size or args.sample_size
+    named_clusters = name_clusters(
+        run_result.clusters,
+        namer,
+        sample_size=naming_sample_size,
+        sampler=args.naming_sampler,
+    )
     merged_clusters = merge_clusters_by_label(named_clusters, theta=args.theta, seed=args.seed)
 
     summary = _build_summary(run_result, merged_clusters)
@@ -351,6 +383,9 @@ def _resolved_run_config(args: argparse.Namespace, candidate_ks: list[int]) -> d
         "local_llm_trust_remote_code": _parse_bool(args.local_llm_trust_remote_code),
         "summary_out": args.summary_out,
         "config_out": args.config_out,
+        "llm_prompt_style": args.llm_prompt_style,
+        "naming_sample_size": args.naming_sample_size,
+        "naming_sampler": args.naming_sampler,
         "out": args.out,
         "include_sentences": _parse_bool(args.include_sentences),
     }

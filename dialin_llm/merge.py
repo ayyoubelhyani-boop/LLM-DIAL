@@ -15,10 +15,11 @@ def name_clusters(
     namer: ClusterNamer,
     *,
     sample_size: int = 20,
+    sampler: str = "head",
 ) -> list[IntentCluster]:
     named_clusters: list[IntentCluster] = []
     for cluster in clusters:
-        sample = cluster.sentences[:sample_size]
+        sample = _sample_cluster_for_naming(cluster.sentences, sample_size=sample_size, sampler=sampler)
         label = namer.name_cluster(sample)
         named_clusters.append(replace(cluster, label=label))
     return named_clusters
@@ -106,3 +107,27 @@ class UnionFind:
             self.parent[root_right] = root_left
             self.rank[root_left] += 1
 
+
+def _sample_cluster_for_naming(
+    sentences: Sequence[str],
+    *,
+    sample_size: int,
+    sampler: str,
+) -> list[str]:
+    if sample_size <= 0:
+        raise ValueError("sample_size must be positive for cluster naming")
+    if len(sentences) <= sample_size:
+        return list(sentences)
+
+    normalized = sampler.strip().lower()
+    if normalized == "head":
+        return list(sentences[:sample_size])
+    if normalized != "centroid":
+        raise ValueError(f"Unknown naming sampler: {sampler}")
+
+    embedder = TfidfEmbeddingBackend(analyzer="word", ngram_range=(1, 2))
+    sentence_embeddings = l2_normalize(embedder.fit_transform(sentences))
+    centroid = l2_normalize(np.mean(sentence_embeddings, axis=0, keepdims=True))[0]
+    scores = sentence_embeddings @ centroid
+    ranked_indices = np.argsort(-scores)
+    return [sentences[int(idx)] for idx in ranked_indices[:sample_size]]

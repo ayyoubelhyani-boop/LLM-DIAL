@@ -1,4 +1,11 @@
-from dialin_llm.llm_utils import _extract_label, _parse_good_bad_loose, _resolve_single_device, _uses_sharded_device_map
+from dialin_llm.llm_utils import (
+    _build_coherence_messages,
+    _build_naming_messages,
+    _extract_label,
+    _parse_good_bad_loose,
+    _resolve_single_device,
+    _uses_sharded_device_map,
+)
 
 
 def test_parse_good_bad_loose_accepts_embedded_verdict() -> None:
@@ -26,3 +33,13 @@ def test_uses_sharded_device_map_only_for_accelerate_modes() -> None:
     assert _uses_sharded_device_map("balanced") is True
     assert _uses_sharded_device_map("cuda:1") is False
     assert _uses_sharded_device_map("cpu") is False
+
+
+def test_benchmark_prompt_style_adds_examples_and_strict_answer_format() -> None:
+    coherence_messages = _build_coherence_messages(["refund my order", "get refund for order"], prompt_style="benchmark")
+    naming_messages = _build_naming_messages(["where is my package", "track package status"], prompt_style="benchmark")
+
+    assert "Example A" in coherence_messages[1]["content"]
+    assert "Answer:" in coherence_messages[1]["content"]
+    assert "verb-object labels" in naming_messages[1]["content"]
+    assert "track-package" in naming_messages[1]["content"]

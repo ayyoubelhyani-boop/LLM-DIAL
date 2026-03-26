@@ -180,62 +180,48 @@ class LocalTransformersTextGenerator:
 
 
 class LocalTransformersCoherenceEvaluator:
-    def __init__(self, *, generator: LocalTransformersTextGenerator, cache: JsonCache | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        generator: LocalTransformersTextGenerator,
+        cache: JsonCache | None = None,
+        prompt_style: str = "simple",
+    ) -> None:
         self.generator = generator
         self.cache = cache or JsonCache()
+        self.prompt_style = prompt_style
 
     def coherence_eval(self, sentences: Sequence[str]) -> bool:
-        key = _hash_payload("local-coherence", self.generator.model, sentences)
+        key = _hash_payload("local-coherence", f"{self.generator.model}:{self.prompt_style}", sentences)
         cached = self.cache.get(key)
         if cached:
             return cached == "good"
 
-        payload = "\n".join(f"- {sentence}" for sentence in sentences)
-        response = self.generator.generate(
-            [
-                {"role": "system", "content": "Return only the requested output."},
-                {
-                    "role": "user",
-                    "content": (
-                        "You are evaluating whether a sampled cluster of customer service utterances is coherent.\n"
-                        "Return only one token: Good or Bad.\n"
-                        "Good means the utterances express one intent. Bad means the intent is mixed or unclear.\n"
-                        f"Sentences:\n{payload}"
-                    ),
-                },
-            ]
-        )
+        response = self.generator.generate(_build_coherence_messages(sentences, prompt_style=self.prompt_style))
         verdict = _parse_good_bad_loose(response)
         self.cache.set(key, verdict)
         return verdict == "good"
 
 
 class LocalTransformersClusterNamer:
-    def __init__(self, *, generator: LocalTransformersTextGenerator, cache: JsonCache | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        generator: LocalTransformersTextGenerator,
+        cache: JsonCache | None = None,
+        prompt_style: str = "simple",
+    ) -> None:
         self.generator = generator
         self.cache = cache or JsonCache()
+        self.prompt_style = prompt_style
 
     def name_cluster(self, sentences: Sequence[str]) -> str:
-        key = _hash_payload("local-name", self.generator.model, sentences)
+        key = _hash_payload("local-name", f"{self.generator.model}:{self.prompt_style}", sentences)
         cached = self.cache.get(key)
         if cached:
             return _extract_label(cached)
 
-        payload = "\n".join(f"- {sentence}" for sentence in sentences)
-        response = self.generator.generate(
-            [
-                {"role": "system", "content": "Return only the requested output."},
-                {
-                    "role": "user",
-                    "content": (
-                        "Name this customer service intent cluster with a strict lowercase action-objective label.\n"
-                        "Use only letters, numbers, and hyphens.\n"
-                        "Return only the label, for example inquire-insurance.\n"
-                        f"Sentences:\n{payload}"
-                    ),
-                },
-            ]
-        )
+        response = self.generator.generate(_build_naming_messages(sentences, prompt_style=self.prompt_style))
         label = _extract_label(response)
         self.cache.set(key, label)
         return label
@@ -249,32 +235,27 @@ class OpenAICoherenceEvaluator:
         cache: JsonCache | None = None,
         timeout: float = 30.0,
         max_retries: int = 3,
+        prompt_style: str = "simple",
     ) -> None:
         self.client = _build_openai_client(timeout=timeout)
         self.model = model
         self.cache = cache or JsonCache()
         self.timeout = timeout
         self.max_retries = max_retries
+        self.prompt_style = prompt_style
 
     def coherence_eval(self, sentences: Sequence[str]) -> bool:
-        payload = "\n".join(f"- {sentence}" for sentence in sentences)
-        key = _hash_payload("coherence", self.model, sentences)
+        key = _hash_payload("coherence", f"{self.model}:{self.prompt_style}", sentences)
         cached = self.cache.get(key)
         if cached:
             return _parse_good_bad(cached) == "good"
 
-        prompt = (
-            "You are evaluating whether a sampled cluster of customer service utterances is coherent.\n"
-            "Return only one token: Good or Bad.\n"
-            "Good means the utterances express one intent. Bad means the intent is mixed or unclear.\n"
-            f"Sentences:\n{payload}"
-        )
-        response = self._call_with_retries(prompt)
+        response = self._call_with_retries(_build_coherence_messages(sentences, prompt_style=self.prompt_style))
         verdict = _parse_good_bad(response)
         self.cache.set(key, verdict)
         return verdict == "good"
 
-    def _call_with_retries(self, prompt: str) -> str:
+    def _call_with_retries(self, messages: Sequence[dict[str, str]]) -> str:
         last_error: Exception | None = None
         for attempt in range(self.max_retries):
             try:
@@ -282,10 +263,7 @@ class OpenAICoherenceEvaluator:
                     model=self.model,
                     temperature=0,
                     timeout=self.timeout,
-                    messages=[
-                        {"role": "system", "content": "Return only the requested output."},
-                        {"role": "user", "content": prompt},
-                    ],
+                    messages=list(messages),
                 )
                 return completion.choices[0].message.content or ""
             except Exception as exc:
@@ -302,32 +280,27 @@ class OpenAIClusterNamer:
         cache: JsonCache | None = None,
         timeout: float = 30.0,
         max_retries: int = 3,
+        prompt_style: str = "simple",
     ) -> None:
         self.client = _build_openai_client(timeout=timeout)
         self.model = model
         self.cache = cache or JsonCache()
         self.timeout = timeout
         self.max_retries = max_retries
+        self.prompt_style = prompt_style
 
     def name_cluster(self, sentences: Sequence[str]) -> str:
-        payload = "\n".join(f"- {sentence}" for sentence in sentences)
-        key = _hash_payload("name", self.model, sentences)
+        key = _hash_payload("name", f"{self.model}:{self.prompt_style}", sentences)
         cached = self.cache.get(key)
         if cached:
             return _validate_label(cached)
 
-        prompt = (
-            "Name this customer service intent cluster with a strict lowercase action-objective label.\n"
-            "Use only letters, numbers, and hyphens.\n"
-            "Return only the label, for example inquire-insurance.\n"
-            f"Sentences:\n{payload}"
-        )
-        response = self._call_with_retries(prompt)
+        response = self._call_with_retries(_build_naming_messages(sentences, prompt_style=self.prompt_style))
         label = _validate_label(response)
         self.cache.set(key, label)
         return label
 
-    def _call_with_retries(self, prompt: str) -> str:
+    def _call_with_retries(self, messages: Sequence[dict[str, str]]) -> str:
         last_error: Exception | None = None
         for attempt in range(self.max_retries):
             try:
@@ -335,10 +308,7 @@ class OpenAIClusterNamer:
                     model=self.model,
                     temperature=0,
                     timeout=self.timeout,
-                    messages=[
-                        {"role": "system", "content": "Return only the requested output."},
-                        {"role": "user", "content": prompt},
-                    ],
+                    messages=list(messages),
                 )
                 return completion.choices[0].message.content or ""
             except Exception as exc:
@@ -457,3 +427,101 @@ def _coerce_label(raw: str) -> str:
 
 def _tokenize(text: str) -> list[str]:
     return re.findall(r"[a-z0-9]+", text.lower())
+
+
+def _build_coherence_messages(sentences: Sequence[str], *, prompt_style: str) -> list[dict[str, str]]:
+    payload = "\n".join(f"- {sentence}" for sentence in sentences)
+    normalized = prompt_style.strip().lower()
+    if normalized == "benchmark":
+        return [
+            {
+                "role": "system",
+                "content": (
+                    "You are a strict evaluator for intent clustering quality. "
+                    "Follow the rubric exactly and answer with one token only."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    "Task: decide whether all utterances express the same customer intent.\n"
+                    "Return exactly one token: Good or Bad.\n"
+                    "Good: the utterances ask for the same underlying action or objective, even with wording variation.\n"
+                    "Bad: the utterances mix different actions, different objectives, or only share a broad topic.\n"
+                    "Example A:\n"
+                    "- refund my order\n"
+                    "- get a refund for the purchase\n"
+                    "- request order refund\n"
+                    "Answer: Good\n"
+                    "Example B:\n"
+                    "- refund my order\n"
+                    "- cancel my subscription\n"
+                    "- where is my package\n"
+                    "Answer: Bad\n"
+                    "Now evaluate this cluster.\n"
+                    f"Sentences:\n{payload}\n"
+                    "Answer:"
+                ),
+            },
+        ]
+    return [
+        {"role": "system", "content": "Return only the requested output."},
+        {
+            "role": "user",
+            "content": (
+                "You are evaluating whether a sampled cluster of customer service utterances is coherent.\n"
+                "Return only one token: Good or Bad.\n"
+                "Good means the utterances express one intent. Bad means the intent is mixed or unclear.\n"
+                f"Sentences:\n{payload}"
+            ),
+        },
+    ]
+
+
+def _build_naming_messages(sentences: Sequence[str], *, prompt_style: str) -> list[dict[str, str]]:
+    payload = "\n".join(f"- {sentence}" for sentence in sentences)
+    normalized = prompt_style.strip().lower()
+    if normalized == "benchmark":
+        return [
+            {
+                "role": "system",
+                "content": (
+                    "You name customer service intent clusters. "
+                    "Return exactly one lowercase hyphenated label and nothing else."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    "Task: produce a concise action-objective label for this intent cluster.\n"
+                    "Rules:\n"
+                    "- use only lowercase letters, numbers, and hyphens\n"
+                    "- prefer verb-object labels such as refund-order or track-package\n"
+                    "- avoid generic labels such as issue-problem or customer-service\n"
+                    "- if the intent is about information seeking, use a verb like check, ask, verify, or track\n"
+                    "Example A:\n"
+                    "- refund my order\n"
+                    "- get a refund for the purchase\n"
+                    "Answer: refund-order\n"
+                    "Example B:\n"
+                    "- where is my package\n"
+                    "- track package status\n"
+                    "Answer: track-package\n"
+                    "Now label this cluster.\n"
+                    f"Sentences:\n{payload}\n"
+                    "Answer:"
+                ),
+            },
+        ]
+    return [
+        {"role": "system", "content": "Return only the requested output."},
+        {
+            "role": "user",
+            "content": (
+                "Name this customer service intent cluster with a strict lowercase action-objective label.\n"
+                "Use only letters, numbers, and hyphens.\n"
+                "Return only the label, for example inquire-insurance.\n"
+                f"Sentences:\n{payload}"
+            ),
+        },
+    ]
