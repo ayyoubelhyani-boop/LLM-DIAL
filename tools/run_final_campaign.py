@@ -5,6 +5,10 @@ import json
 import sys
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from dialin_llm.final_campaign import (
     DEFAULT_LOCAL_LLM_MODEL,
     DEFAULT_SENTENCE_TRANSFORMER_MODEL,
@@ -73,7 +77,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    repo_root = Path(__file__).resolve().parent.parent
+    repo_root = REPO_ROOT
     payload = run_campaign(
         repo_root=repo_root,
         output_root=Path(args.output_root),

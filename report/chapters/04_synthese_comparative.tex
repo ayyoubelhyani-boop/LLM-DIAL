@@ -71,7 +71,7 @@ rapport a la reproduction initiale, puis de situer ce resultat face au papier.
     Bank77 & 82.32 & 83.78 & 82.28 & -1.50 & -0.04 & reproduction \\
     CLINC(I) & 94.12 & 90.90 & 92.36 & +1.46 & -1.76 & amelioree \\
     MTOP(I) & 72.45 & 71.12 & 73.08 & +1.96 & +0.63 & amelioree \\
-    Massive(I) & 78.12 & 74.02 & 75.68 & +1.66 & -2.44 & amelioree \\
+    Massive(I) & 78.12 & 72.44 & 75.68 & +3.24 & -2.44 & amelioree \\
     \bottomrule
   \end{tabular}
   \caption{Comparaison globale entre le papier, la reproduction et la configuration amelioree finale.}
@@ -84,7 +84,7 @@ Ce tableau montre deja une image assez nette de l'etat du projet :
   Bank77 se degrade par rapport a la reproduction, meme s'il reste quasiment
   aligne sur le score du papier ;
   \item les ameliorations sont en revanche benefiques sur CLINC(I), MTOP(I) et
-  Massive(I), avec des gains respectifs de 1.46, 1.96 et 1.66 point de NMI par
+  Massive(I), avec des gains respectifs de 1.46, 1.96 et 3.24 point de NMI par
   rapport a la reproduction ;
   \item MTOP(I) devient particulierement interessant, car la version amelioree
   depasse legerement la cible du papier.
@@ -92,10 +92,11 @@ Ce tableau montre deja une image assez nette de l'etat du projet :
 
 \section{Comparaison detaillee sur les benchmarks ameliores}
 
-Les ameliorations n'ont pas toutes ete lancees sur les quatre benchmarks. En
-l'etat, la comparaison la plus complete entre variantes concerne CLINC(I) et
-Massive(I), car ce sont les deux benchmarks sur lesquels les ecarts de
-reproduction etaient les plus significatifs.
+Les ameliorations n'ont pas toutes ete lancees sous forme d'ablations
+exploratoires sur les quatre benchmarks. En l'etat, la comparaison la plus
+complete entre variantes concerne CLINC(I) et Massive(I), car ce sont les deux
+benchmarks sur lesquels les ecarts de reproduction etaient les plus
+significatifs.
 
 Le tableau~\ref{tab:improvement-path} resume la trajectoire observee.
 
@@ -107,10 +108,10 @@ Le tableau~\ref{tab:improvement-path} resume la trajectoire observee.
     Benchmark & Reprod. & Imp. 1 & Imp. 2 & Imp. 3 & Imp. 4 & Papier \\
     \midrule
     CLINC(I) & 90.90 & 91.79 & 91.44 & 92.36 & 92.01 & 94.12 \\
-    Massive(I) & 74.02 & 73.77 & 73.69 & 75.68 & 73.82 & 78.12 \\
+    Massive(I) & 72.44 & 73.77 & 73.69 & 75.68 & 73.82 & 78.12 \\
     \bottomrule
   \end{tabular}
-  \caption{Trajectoire des scores au fil des ameliorations. Imp. 1 : coherence / naming. Imp. 2 : merge hybride. Imp. 3 : \texttt{K} adaptatif \texttt{sqrt}. Imp. 4 : \texttt{K} \texttt{focused}.}
+  \caption{Trajectoire des scores au fil des ameliorations. La colonne Reprod. reprend la baseline officielle de la campagne finale ; les colonnes d'amelioration correspondent aux meilleures variantes exploratoires observees pour chaque etape. Imp. 1 : coherence / naming. Imp. 2 : merge hybride. Imp. 3 : \texttt{K} adaptatif \texttt{sqrt}. Imp. 4 : \texttt{K} \texttt{focused}.}
   \label{tab:improvement-path}
 \end{table}
 
